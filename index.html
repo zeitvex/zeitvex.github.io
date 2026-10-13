@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0d13" />
+    <title>zeitvex · RC_WheelLeg — 16DOF 轮足机器人强化学习工程</title>
+    <meta name="description" content="RC_WheelLeg：山东华宇工学院 16DOF 串联轮足机器人项目。强化学习训练、MuJoCo Sim2Sim、ROS 2 真机部署，Robocon 仿生足式障碍赛 1050 分。浏览器内在线运行比赛策略。" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
+    <link rel="stylesheet" href="./assets/css/site.css" />
+  </head>
+  <body>
+    <nav class="nav">
+      <a class="nav-brand" href="./index.html">zeitvex<span>.dev</span></a>
+      <div class="nav-links">
+        <a href="#demo">在线仿真</a>
+        <a href="#contract">系统契约</a>
+        <a href="#policy">比赛策略</a>
+        <a href="#training">训练</a>
+        <a href="#sim2real">Sim2Real</a>
+        <a href="#media">实机记录</a>
+        <a class="nav-cta" href="./playground.html">进入试玩区 →</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="hero-inner">
+        <p class="kicker">REINFORCEMENT LEARNING · LEGGED ROBOTICS</p>
+        <h1>RC_WheelLeg<br /><span>16DOF 串联轮足机器人</span></h1>
+        <p class="lede">
+          从 MJCF 建模、mjlab 强化学习训练、MuJoCo Sim2Sim 到 ROS 2 / C++ 真机部署的完整工程。
+          比赛最终策略 <code>model_6800.onnx</code> 与高墙策略 <code>model_84.onnx</code>
+          现已通过 WebAssembly 在浏览器里实时运行——物理、观测、推理全部本地完成，无需服务器。
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="./playground.html">▶ 在线仿真演示</a>
+          <a class="btn" href="https://git.zeitvex.com/Robocon/RC_WheelLeg" target="_blank" rel="noopener">工程仓库</a>
+        </div>
+        <div class="chips">
+          <div class="chip"><b>16</b><span>DOF（12 腿 + 4 轮）</span></div>
+          <div class="chip"><b>53</b><span>维策略观测</span></div>
+          <div class="chip"><b>50 Hz</b><span>策略周期</span></div>
+          <div class="chip"><b>200 Hz</b><span>物理步长 5 ms</span></div>
+          <div class="chip"><b>1050</b><span>Robocon 得分</span></div>
+          <div class="chip"><b>前 5%</b><span>赛史排名第七</span></div>
+        </div>
+      </div>
+    </header>
+
+    <section id="demo" class="section">
+      <h2>在线仿真 · 浏览器里的真策略</h2>
+      <p class="section-lede">
+        同一份 MJCF、同一份 53 维观测契约、同一份 ONNX 权重。左侧选择策略与地形，W/S 前后、A/D 横移、Q/E 转向，
+        或打开「指令」面板用滑杆遥控。切换策略时按真机运行时的 1.0 秒线性混合过渡。
+      </p>
+      <div class="demo-frame">
+        <iframe src="./playground.html" title="RC_WheelLeg 在线仿真" loading="lazy" allowfullscreen></iframe>
+      </div>
+      <p class="fineprint">
+        首次加载约 25 MB（MuJoCo WASM + ONNX Runtime Web，之后走浏览器缓存）。建议桌面端 Chrome / Edge / Firefox 最新版。
+        若嵌入窗口操作不便，请 <a href="./playground.html">全屏打开</a>。
+      </p>
+    </section>
+
+    <section id="contract" class="section">
+      <h2>系统契约 · 训练 / 仿真 / 真机同一份</h2>
+      <p class="section-lede">
+        观测与动作的每一维顺序、缩放、默认站姿都由 <code>sim2real_ros2_v3</code> 的部署契约
+        （<code>deployment_contract.hpp</code>）固化，训练配置、浏览器仿真、真机 C++ 运行时三方同源。
+      </p>
+      <div class="grid2">
+        <div class="card">
+          <h3>策略观测 · 53 维</h3>
+          <table>
+            <thead><tr><th>段</th><th>维度</th><th>缩放</th></tr></thead>
+            <tbody>
+              <tr><td>基座角速度（机体系）</td><td>3</td><td>×0.25</td></tr>
+              <tr><td>投影重力</td><td>3</td><td>—</td></tr>
+              <tr><td>速度指令 vx / vy / ω</td><td>3</td><td>—</td></tr>
+              <tr><td>12 腿关节相对位置</td><td>12</td><td>×1.0</td></tr>
+              <tr><td>12 腿关节速度</td><td>12</td><td>×0.05</td></tr>
+              <tr><td>4 轮关节速度</td><td>4</td><td>×0.05</td></tr>
+              <tr><td>上一步动作</td><td>16</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>策略动作 · 16 维</h3>
+          <table>
+            <thead><tr><th>段</th><th>维度</th><th>动作缩放</th></tr></thead>
+            <tbody>
+              <tr><td>外展关节位置目标</td><td>4</td><td>0.125 rad</td></tr>
+              <tr><td>髋俯仰 / 膝关节位置目标</td><td>8</td><td>0.25 rad</td></tr>
+              <tr><td>轮关节速度目标</td><td>4</td><td>5.0 rad/s</td></tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:18px">执行器（部署契约）</h3>
+          <table>
+            <tbody>
+              <tr><td>腿部</td><td>位置伺服 Kp=50 · Kd=1.5</td></tr>
+              <tr><td>轮部</td><td>速度控制 Kd=1.0</td></tr>
+              <tr><td>力矩上限</td><td>17 N·m</td></tr>
+              <tr><td>默认站姿</td><td>hip 0.55 · knee −1.125 rad</td></tr>
+              <tr><td>初始机高</td><td>0.42 m</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="policy" class="section">
+      <h2>比赛双策略</h2>
+      <div class="grid2">
+        <div class="card policy-card">
+          <h3>Rough 主策略 · model_6800</h3>
+          <p>比赛最终部署的粗糙地形策略，覆盖台阶、随机网格、坡面与高墙混合地形。1050 分成绩局的实机加载件，ONNX 输入 <code>[1,53]</code> → 输出 <code>[1,16]</code>，与真机 TensorRT 引擎同权重。</p>
+        </div>
+        <div class="card policy-card">
+          <h3>高墙策略 · model_84</h3>
+          <p>Robocon 高墙环节专用策略，针对 0.10–0.35 m 重复横墙训练。在试玩区选择「五道高墙」地形即可看到真实的攀爬：机身冲上 0.30 m 墙顶、姿态恢复后继续前进。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="training" class="section">
+      <h2>训练 · mjlab + PPO</h2>
+      <p class="section-lede">
+        训练主体为 <code>v0.6.0 best</code> 比赛架构：分轴 vx/vy/yaw 跟踪奖励、自适应指令课程、障碍释放课程，
+        2048 并行环境，物理 200 Hz、策略 50 Hz。
+      </p>
+      <div class="card">
+        <h3>Robot-Rough-v0 地形混合</h3>
+        <table class="terrain-table">
+          <thead><tr><th>地形</th><th>比例</th><th>范围</th></tr></thead>
+          <tbody>
+            <tr><td>反向台阶</td><td>35%</td><td>阶高 0–0.20 m</td></tr>
+            <tr><td>随机网格</td><td>27%</td><td>高度 0–0.20 m</td></tr>
+            <tr><td>平地</td><td>15%</td><td>8 m × 8 m</td></tr>
+            <tr><td>自定义高墙</td><td>15%</td><td>高度 0.10–0.35 m</td></tr>
+            <tr><td>正向台阶</td><td>5%</td><td>阶高 0–0.20 m</td></tr>
+            <tr><td>随机粗糙面 / Perlin 噪声</td><td>1% / 1%</td><td>起伏 0–0.06 m</td></tr>
+            <tr><td>金字塔坡面</td><td>1%</td><td>坡度 0.052–0.325</td></tr>
+          </tbody>
+        </table>
+        <p class="fineprint">课程从平地、粗糙面、Perlin、坡面与正向台阶开始，按训练步数释放随机网格、反向台阶与高墙；域随机化含质心偏移、摩擦、刚度/阻尼缩放、附加质量与间歇推扰。</p>
+      </div>
+    </section>
+
+    <section id="sim2real" class="section">
+      <h2>Sim2Real 演进</h2>
+      <ol class="timeline">
+        <li><b>ik_real</b><span>几何逆运动学 + 轨迹插值，验证电机接口与关节映射</span></li>
+        <li><b>sim2real</b><span>第一代 Python 部署栈：53D 观测 → 16D 动作运行时、IMU、站立初始化、Web 调试界面</span></li>
+        <li><b>sim2real_v2</b><span>电机反馈新鲜度、Odin 里程计诊断、命令平滑与安全监控</span></li>
+        <li><b>sim2real_ros2</b><span>策略热路径迁移 C++：50 Hz 推理 + 200 Hz CAN 电机循环，Nav2</span></li>
+        <li><b>ros2_v2</b><span>导航原型、PCD 交互定位、TensorRT 多策略切换</span></li>
+        <li><b>ros2_v3</b><span>1050 分最终部署：model_6800 Rough + model_84 Wall、完整 Odin 驱动、CAN 与触控屏</span></li>
+      </ol>
+    </section>
+
+    <section id="media" class="section">
+      <h2>实机记录</h2>
+      <div class="grid2">
+        <figure class="media-card">
+          <video controls preload="metadata" poster="./assets/media/early_sim2real_preview.jpg">
+            <source src="./assets/media/early_sim2real.mp4" type="video/mp4" />
+          </video>
+          <figcaption>第一代 Sim2Real 真机验证（约 41 秒）</figcaption>
+        </figure>
+        <figure class="media-card">
+          <video controls preload="metadata" poster="./assets/media/competition_robot.png">
+            <source src="./assets/media/competition_720p.mp4" type="video/mp4" />
+          </video>
+          <figcaption>Robocon 比赛最终机器人</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>这个站点本身</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3>纯静态 · 零后端</h3>
+          <p>GitHub Pages 托管。仿真 = MuJoCo WebAssembly（物理）+ ONNX Runtime Web（策略推理）+ Three.js（渲染），全部在浏览器内完成，没有任何服务端计算。</p>
+        </div>
+        <div class="card">
+          <h3>网格抽稀</h3>
+          <p>MJCF 原始 STL 共 42.4 MB / 84.8 万三角形，构建期经顶点聚类抽稀至 3.8 万三角形（verts.bin 0.21 MB），MuJoCo 与渲染共用同一份抽稀结果。</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>© 2026 zeitvex · zeitvex@qq.com · <a href="https://git.zeitvex.com/Robocon/RC_WheelLeg" target="_blank" rel="noopener">git.zeitvex.com/Robocon/RC_WheelLeg</a></p>
+      <p class="fineprint">RC_WheelLeg · 山东华宇工学院 · Robocon 仿生足式障碍赛 1050 分 / 第七名</p>
+    </footer>
+  </body>
+</html>

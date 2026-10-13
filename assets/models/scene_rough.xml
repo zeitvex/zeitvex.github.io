@@ -1,0 +1,72 @@
+<mujoco model="wheelleg_web_rough">
+  <include file="wheelleg_web.xml"/>
+  <option timestep="0.005" gravity="0 0 -9.81" integrator="implicitfast" impratio="100" cone="elliptic"/>
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.30 0.50 0.70" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.20 0.30 0.40" rgb2="0.10 0.20 0.30" markrgb="0.80 0.80 0.80" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" friction="0.8 0.05 0.01"/>
+    <geom name="r0_0" type="box" size="0.5 0.5 0.038" pos="-1.0 -2.5 0.038"/>
+    <geom name="r0_1" type="box" size="0.5 0.5 0.054" pos="-1.0 -1.5 0.054"/>
+    <geom name="r0_2" type="box" size="0.5 0.5 0.047" pos="-1.0 -0.5 0.047"/>
+    <geom name="r0_3" type="box" size="0.5 0.5 0.014" pos="-1.0 0.5 0.014"/>
+    <geom name="r0_4" type="box" size="0.5 0.5 0.018" pos="-1.0 1.5 0.018"/>
+    <geom name="r0_5" type="box" size="0.5 0.5 0.052" pos="-1.0 2.5 0.052"/>
+    <geom name="r1_1" type="box" size="0.5 0.5 0.049" pos="0.0 -1.5 0.049"/>
+    <geom name="r1_2" type="box" size="0.5 0.5 0.048" pos="0.0 -0.5 0.048"/>
+    <geom name="r1_3" type="box" size="0.5 0.5 0.028" pos="0.0 0.5 0.028"/>
+    <geom name="r1_4" type="box" size="0.5 0.5 0.018" pos="0.0 1.5 0.018"/>
+    <geom name="r1_5" type="box" size="0.5 0.5 0.017" pos="0.0 2.5 0.017"/>
+    <geom name="r2_0" type="box" size="0.5 0.5 0.015" pos="1.0 -2.5 0.015"/>
+    <geom name="r2_1" type="box" size="0.5 0.5 0.027" pos="1.0 -1.5 0.027"/>
+    <geom name="r2_2" type="box" size="0.5 0.5 0.03" pos="1.0 -0.5 0.03"/>
+    <geom name="r2_3" type="box" size="0.5 0.5 0.033" pos="1.0 0.5 0.033"/>
+    <geom name="r2_4" type="box" size="0.5 0.5 0.06" pos="1.0 1.5 0.06"/>
+    <geom name="r2_5" type="box" size="0.5 0.5 0.048" pos="1.0 2.5 0.048"/>
+    <geom name="r3_0" type="box" size="0.5 0.5 0.037" pos="2.0 -2.5 0.037"/>
+    <geom name="r3_1" type="box" size="0.5 0.5 0.059" pos="2.0 -1.5 0.059"/>
+    <geom name="r3_2" type="box" size="0.5 0.5 0.013" pos="2.0 -0.5 0.013"/>
+    <geom name="r3_3" type="box" size="0.5 0.5 0.01" pos="2.0 0.5 0.01"/>
+    <geom name="r3_4" type="box" size="0.5 0.5 0.037" pos="2.0 1.5 0.037"/>
+    <geom name="r4_1" type="box" size="0.5 0.5 0.031" pos="3.0 -1.5 0.031"/>
+    <geom name="r4_2" type="box" size="0.5 0.5 0.028" pos="3.0 -0.5 0.028"/>
+    <geom name="r4_3" type="box" size="0.5 0.5 0.055" pos="3.0 0.5 0.055"/>
+    <geom name="r4_4" type="box" size="0.5 0.5 0.038" pos="3.0 1.5 0.038"/>
+    <geom name="r4_5" type="box" size="0.5 0.5 0.031" pos="3.0 2.5 0.031"/>
+    <geom name="r5_0" type="box" size="0.5 0.5 0.03" pos="4.0 -2.5 0.03"/>
+    <geom name="r5_1" type="box" size="0.5 0.5 0.015" pos="4.0 -1.5 0.015"/>
+    <geom name="r5_3" type="box" size="0.5 0.5 0.012" pos="4.0 0.5 0.012"/>
+    <geom name="r5_4" type="box" size="0.5 0.5 0.042" pos="4.0 1.5 0.042"/>
+    <geom name="r5_5" type="box" size="0.5 0.5 0.012" pos="4.0 2.5 0.012"/>
+    <geom name="r6_0" type="box" size="0.5 0.5 0.022" pos="5.0 -2.5 0.022"/>
+    <geom name="r6_2" type="box" size="0.5 0.5 0.05" pos="5.0 -0.5 0.05"/>
+    <geom name="r6_3" type="box" size="0.5 0.5 0.009" pos="5.0 0.5 0.009"/>
+    <geom name="r6_4" type="box" size="0.5 0.5 0.016" pos="5.0 1.5 0.016"/>
+    <geom name="r6_5" type="box" size="0.5 0.5 0.053" pos="5.0 2.5 0.053"/>
+    <geom name="r7_0" type="box" size="0.5 0.5 0.031" pos="6.0 -2.5 0.031"/>
+    <geom name="r7_1" type="box" size="0.5 0.5 0.051" pos="6.0 -1.5 0.051"/>
+    <geom name="r7_2" type="box" size="0.5 0.5 0.038" pos="6.0 -0.5 0.038"/>
+    <geom name="r7_3" type="box" size="0.5 0.5 0.045" pos="6.0 0.5 0.045"/>
+    <geom name="r7_4" type="box" size="0.5 0.5 0.005" pos="6.0 1.5 0.005"/>
+    <geom name="r7_5" type="box" size="0.5 0.5 0.032" pos="6.0 2.5 0.032"/>
+    <geom name="r8_0" type="box" size="0.5 0.5 0.03" pos="7.0 -2.5 0.03"/>
+    <geom name="r8_1" type="box" size="0.5 0.5 0.052" pos="7.0 -1.5 0.052"/>
+    <geom name="r8_2" type="box" size="0.5 0.5 0.022" pos="7.0 -0.5 0.022"/>
+    <geom name="r8_3" type="box" size="0.5 0.5 0.036" pos="7.0 0.5 0.036"/>
+    <geom name="r8_4" type="box" size="0.5 0.5 0.004" pos="7.0 1.5 0.004"/>
+    <geom name="r8_5" type="box" size="0.5 0.5 0.023" pos="7.0 2.5 0.023"/>
+    <geom name="r9_0" type="box" size="0.5 0.5 0.019" pos="8.0 -2.5 0.019"/>
+    <geom name="r9_1" type="box" size="0.5 0.5 0.009" pos="8.0 -1.5 0.009"/>
+    <geom name="r9_2" type="box" size="0.5 0.5 0.049" pos="8.0 -0.5 0.049"/>
+    <geom name="r9_3" type="box" size="0.5 0.5 0.023" pos="8.0 0.5 0.023"/>
+    <geom name="r9_4" type="box" size="0.5 0.5 0.059" pos="8.0 1.5 0.059"/>
+    <geom name="r9_5" type="box" size="0.5 0.5 0.035" pos="8.0 2.5 0.035"/>
+  </worldbody>
+</mujoco>

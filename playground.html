@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0d13" />
+    <title>RC_WheelLeg 在线仿真 · 16DOF 轮足机器人策略试玩</title>
+    <meta name="description" content="浏览器内运行 MuJoCo WebAssembly 物理仿真与 ONNX 比赛策略（model_6800 Rough / model_84 高墙）的 16DOF 轮足机器人实时演示。" />
+    <link rel="stylesheet" href="./assets/css/playground.css" />
+    <link rel="stylesheet" href="./assets/css/playground-extra.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./assets/vendor/three/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="scene" aria-label="RC_WheelLeg MuJoCo 在线仿真画面">
+      <canvas id="simCanvas"></canvas>
+      <div id="bootScreen" class="boot-screen" role="status">
+        <div class="boot-mark">ZEITVEX / WHEELLEG-SIM</div>
+        <div class="boot-spinner" aria-hidden="true"></div>
+        <strong>正在准备在线仿真环境</strong>
+        <span id="bootStage">初始化…</span>
+        <div class="boot-progress" aria-label="加载进度"><i id="bootProgress"></i></div>
+        <output id="bootPercent">0%</output>
+      </div>
+
+      <header class="top-bar">
+        <a class="brand" href="./index.html" aria-label="返回首页">ZEITVEX <span>/</span> WHEELLEG-SIM</a>
+        <div class="policy-context">
+          <strong id="policyName">RC_WheelLeg · 16DOF 轮足</strong>
+          <span id="policyMeta">MuJoCo WASM + ONNX Runtime Web</span>
+        </div>
+        <div class="top-actions">
+          <select id="policySelect" aria-label="选择策略" disabled></select>
+          <select id="terrainSelect" aria-label="选择地形" disabled></select>
+          <button id="startBtn" class="primary" disabled>开始</button>
+          <button id="resetBtn" disabled>重置</button>
+          <button id="followBtn" class="active" disabled>跟随</button>
+          <button id="cmdToggle" disabled>指令</button>
+          <button id="monitorToggle" disabled>监测</button>
+        </div>
+        <output id="commandOut" class="command-output">vx 0.00 · vy 0.00 · ω 0.00</output>
+        <output id="clock" class="clock">0.0 s</output>
+        <span id="engineState" class="pill">正在加载…</span>
+        <span id="fallenBadge" class="pill danger" hidden>已摔倒</span>
+      </header>
+
+      <aside id="cmdPanel" class="cmd-panel" aria-label="运动指令" hidden>
+        <div class="panel-heading">
+          <div><p class="panel-kicker">COMMAND</p><strong>运动指令</strong></div>
+          <button id="cmdClose" class="icon-button" aria-label="关闭指令面板">×</button>
+        </div>
+        <p class="panel-copy">键盘 W/S 前后、A/D 横移、Q/E 转向；或用滑杆直接赋值。限幅与真机运行时一致：vx ±0.9 m/s、vy ±0.5 m/s、ω ±1.0 rad/s。</p>
+        <div class="command-settings">
+          <label><span>vx</span><input id="cmdVx" type="range" min="-0.9" max="0.9" step="0.05" value="0" /><output id="cmdVxOut">0.00 m/s</output></label>
+          <label><span>vy</span><input id="cmdVy" type="range" min="-0.5" max="0.5" step="0.05" value="0" /><output id="cmdVyOut">0.00 m/s</output></label>
+          <label><span>ω</span><input id="cmdWz" type="range" min="-1" max="1" step="0.05" value="0" /><output id="cmdWzOut">0.00 rad/s</output></label>
+        </div>
+        <button id="cmdCenter" class="stop-command">归中 / 急停指令</button>
+      </aside>
+
+      <aside id="monitorPanel" class="monitor-panel" aria-label="策略监测" hidden>
+        <div class="panel-heading">
+          <div><p class="panel-kicker">TELEMETRY</p><strong>策略监测</strong></div>
+          <button id="monitorClose" class="icon-button" aria-label="关闭监测面板">×</button>
+        </div>
+        <div class="telemetry-summary"><span>机身 <output id="bodyPos">x 0.00 · y 0.00 · z 0.420</output></span><span><output id="inferOut">推理 0.0 ms</output></span></div>
+        <p class="panel-copy">策略动作输出（16 维原始值，正值蓝 / 负值红）：</p>
+        <canvas id="actionChart" width="320" height="72" aria-label="策略动作输出"></canvas>
+        <p class="panel-copy">53 维观测分段（gyro / 重力 / 指令 / 腿位置 / 腿速度 / 轮速度 / 上步动作）：</p>
+        <canvas id="obsChart" width="320" height="110" aria-label="观测向量"></canvas>
+        <div id="actionValues" class="action-values" aria-label="各关节动作输出"></div>
+      </aside>
+    </main>
+    <script type="module" src="./assets/js/app.js"></script>
+  </body>
+</html>
