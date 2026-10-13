@@ -55,34 +55,27 @@ export class SimRenderer {
   }
 
   async load() {
-    const base = this.sim.baseUrl;
-    const manifest = await (await fetch(`${base}meshes.json`)).json();
-    this.verts = new Float32Array(await (await fetch(`${base}verts.bin`)).arrayBuffer());
-    this.idx = new Uint32Array(await (await fetch(`${base}idx.bin`)).arrayBuffer());
-    this.manifest = manifest;
-    this.geoms = {};
-    for (const [name, m] of Object.entries(manifest.meshes)) this.geoms[name] = m;
+    // 几何体直接取自 MuJoCo 编译后的 mesh_vert/mesh_face（本构建会重中心化 mesh
+    // 顶点并用 geom_pos/quat 补偿；自建几何体必须用同一份数据，否则变换错位）。
     this.build();
   }
 
-  meshGeometry(name) {
-    const m = this.geoms[name];
-    if (!m) return null;
-    const geo = new THREE.BufferGeometry();
-    const pos = new Float32Array(m.vcount * 3);
-    const nrm = new Float32Array(m.vcount * 3);
-    for (let i = 0; i < m.vcount; i += 1) {
-      pos[i * 3] = this.verts[(m.vstart + i) * 6];
-      pos[i * 3 + 1] = this.verts[(m.vstart + i) * 6 + 1];
-      pos[i * 3 + 2] = this.verts[(m.vstart + i) * 6 + 2];
-      nrm[i * 3] = this.verts[(m.vstart + i) * 6 + 3];
-      nrm[i * 3 + 1] = this.verts[(m.vstart + i) * 6 + 4];
-      nrm[i * 3 + 2] = this.verts[(m.vstart + i) * 6 + 5];
+  meshGeometry(meshId) {
+    const m = this.sim.model;
+    const vadr = m.mesh_vertadr[meshId], vnum = m.mesh_vertnum[meshId];
+    const fadr = m.mesh_faceadr[meshId], fnum = m.mesh_facenum[meshId];
+    if (!(vnum > 0 && fnum > 0)) return null;
+    const pos = new Float32Array(vnum * 3);
+    for (let i = 0; i < vnum * 3; i += 1) pos[i] = m.mesh_vert[vadr * 3 + i];
+    const index = [];
+    for (let f = 0; f < fnum; f += 1) {
+      const a = m.mesh_face[fadr + f * 3], b = m.mesh_face[fadr + f * 3 + 1], c = m.mesh_face[fadr + f * 3 + 2];
+      if (a !== b && b !== c && a !== c) index.push(a, b, c);
     }
-    const index = Array.from(this.idx.slice(m.istart, m.istart + m.icount));
+    const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute("normal", new THREE.BufferAttribute(nrm, 3));
     geo.setIndex(index);
+    geo.computeVertexNormals();
     return geo;
   }
 
@@ -96,6 +89,11 @@ export class SimRenderer {
     if (this.robotRoot) {
       this.scene.remove(this.robotRoot);
       this.robotRoot.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    }
+    if (this.floorMesh) {
+      this.scene.remove(this.floorMesh);
+      this.floorMesh.geometry.dispose();
+      this.floorMesh = null;
     }
     this.robotRoot = new THREE.Group();
     this.scene.add(this.robotRoot);
@@ -114,11 +112,14 @@ export class SimRenderer {
         );
         floor.rotation.x = -Math.PI / 2;
         this.scene.add(floor);
+        this.floorMesh = floor;
         continue;
       }
+      // 机身碰撞盒（body != world 的图元）不渲染：与 MuJoCo 默认视图一致，
+      // 视觉由 mesh 提供；世界体中的图素（地形）保留。
+      if (type !== MJ_GEOM_MESH && model.geom_bodyid[i] !== 0) continue;
       if (type === MJ_GEOM_MESH) {
-        const name = mujoco.mj_id2name(model, MJ_OBJ_MESH, model.geom_dataid[i]);
-        const geo = this.meshGeometry(name);
+        const geo = this.meshGeometry(model.geom_dataid[i]);
         if (!geo) continue;
         obj = new THREE.Mesh(geo, robotMat);
       } else if (type === MJ_GEOM_BOX) {
@@ -163,6 +164,66 @@ export class SimRenderer {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
+  }
+
+  /** 客观对齐验证：mesh 世界包围盒 vs 碰撞盒（MuJoCo 数据直算）；所有对象不得嵌入地板。 */
+  verifyAlignment() {
+    this.sync();
+    const { model, data, mujoco } = this.sim;
+    const corners = (obj) => {
+      obj.geometry.computeBoundingBox();
+      const bb = obj.geometry.boundingBox;
+      const pts = [];
+      for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
+        pts.push(obj.localToWorld(new THREE.Vector3(x, y, z)));
+      }
+      return pts;
+    };
+    const bboxOf = (pts) => {
+      const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+      for (const p of pts) for (let a = 0; a < 3; a += 1) { mn[a] = Math.min(mn[a], p.getComponent(a)); mx[a] = Math.max(mx[a], p.getComponent(a)); }
+      return { min: mn, max: mx };
+    };
+    const out = { pairs: [], minZ: 1e9, geomCount: this.geomObjects.length };
+    // 按名字定位机身碰撞盒（场景切换后 geom id 会变）
+    let boxId = -1;
+    for (let g = 0; g < model.ngeom; g += 1) {
+      if (mujoco.mj_id2name(model, 5, g) === "base_link_col1") { boxId = g; break; }
+    }
+    if (boxId > 0) {
+      const meshObj = this.geomObjects.find((o) => o.userData.geomId === boxId - 1);
+      if (meshObj) {
+        const a = bboxOf(corners(meshObj));
+        // 碰撞盒：MuJoCo 世界位姿 + 半尺寸，直算 8 角
+        const s = [model.geom_size[boxId * 3], model.geom_size[boxId * 3 + 1], model.geom_size[boxId * 3 + 2]];
+        const p0 = [data.geom_xpos[boxId * 3], data.geom_xpos[boxId * 3 + 1], data.geom_xpos[boxId * 3 + 2]];
+        const xm = Array.from(data.geom_xmat.subarray(boxId * 9, boxId * 9 + 9));
+        const bpts = [];
+        for (const dx of [-s[0], s[0]]) for (const dy of [-s[1], s[1]]) for (const dz of [-s[2], s[2]]) {
+          bpts.push(new THREE.Vector3(
+            p0[0] + xm[0] * dx + xm[1] * dy + xm[2] * dz,
+            p0[1] + xm[3] * dx + xm[4] * dy + xm[5] * dz,
+            p0[2] + xm[6] * dx + xm[7] * dy + xm[8] * dz,
+          ));
+        }
+        const b = bboxOf(bpts);
+        out.pairs.push({
+          pair: "base_link mesh vs collider box",
+          diff: [0, 1, 2].map((i) => +Math.max(Math.abs(a.min[i] - b.min[i]), Math.abs(a.max[i] - b.max[i])).toFixed(4)),
+          mesh: { min: a.min.map((v) => +v.toFixed(3)), max: a.max.map((v) => +v.toFixed(3)) },
+          box: { min: b.min.map((v) => +v.toFixed(3)), max: b.max.map((v) => +v.toFixed(3)) },
+        });
+      }
+    }
+    for (const obj of this.geomObjects) {
+      const bb = bboxOf(corners(obj));
+      out.minZ = Math.min(out.minZ, bb.min[2]);
+    }
+    // 轮子 mesh 的轮胎轮廓比碰撞圆柱低约 4cm（CAD 模型本身如此，MuJoCo 官方
+    // 查看器同样如此），阈值放到 -0.06；偏移类 bug 由上面的 mesh-vs-box 对齐捕获。
+    out.minZ = +out.minZ.toFixed(4);
+    out.minZLimit = -0.06;
+    return out;
   }
 
   render() {
