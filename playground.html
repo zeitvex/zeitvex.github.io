@@ -1,82 +1,230 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0d13" />
-    <title>RC_WheelLeg 在线仿真 · 16DOF 轮足机器人策略试玩</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>基础仿真 · RC_WheelLeg · Legged Studio</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
-    <meta name="description" content="浏览器内运行 MuJoCo WebAssembly 物理仿真与 ONNX 比赛策略（model_6800 Rough / model_84 高墙）的 16DOF 轮足机器人实时演示。" />
-    <link rel="stylesheet" href="./assets/css/playground.css" />
-    <link rel="stylesheet" href="./assets/css/playground-extra.css" />
+    <link rel="stylesheet" href="./assets/css/sim.css?v=1.0.0" />
     <script type="importmap">
       {
         "imports": {
-          "three": "./assets/vendor/three/three.module.js"
+          "three": "./assets/vendor/three/three.module.js",
+          "three/addons/": "./assets/vendor/three/"
         }
       }
     </script>
   </head>
   <body>
-    <main id="scene" aria-label="RC_WheelLeg MuJoCo 在线仿真画面">
-      <canvas id="simCanvas"></canvas>
-      <div id="bootScreen" class="boot-screen" role="status">
-        <div class="boot-mark">ZEITVEX / WHEELLEG-SIM</div>
-        <div class="boot-spinner" aria-hidden="true"></div>
-        <strong>正在准备在线仿真环境</strong>
-        <span id="bootStage">初始化…</span>
-        <div class="boot-progress" aria-label="加载进度"><i id="bootProgress"></i></div>
-        <output id="bootPercent">0%</output>
-      </div>
+    <main class="app">
+      <section id="viewer" class="viewer" aria-label="MuJoCo 仿真视口">
+        <canvas id="simCanvas"></canvas>
+        <div id="loading" class="loading">
+          <strong>仿真验证</strong>
+          <span id="loadingText">加载 MuJoCo WASM...</span>
+          <span class="loading-bar"><i id="loadingBar"></i></span>
+        </div>
+      </section>
 
-      <header class="top-bar">
-        <a class="brand" href="./index.html" aria-label="返回首页">ZEITVEX <span>/</span> WHEELLEG-SIM</a>
-        <div class="policy-context">
-          <strong id="policyName">RC_WheelLeg · 16DOF 轮足</strong>
-          <span id="policyMeta">MuJoCo WASM + ONNX Runtime Web</span>
+      <header class="hud hud-top">
+        <div class="brand">
+          <span class="brand-mark">ZW</span>
+          <div>
+            <h1 id="surfaceTitle">基础仿真</h1>
+            <p id="modelSubtitle">MuJoCo WASM · ONNX 策略 · RC_WheelLeg 16DOF</p>
+          </div>
         </div>
-        <div class="top-actions">
-          <select id="policySelect" aria-label="选择策略" disabled></select>
-          <select id="terrainSelect" aria-label="选择地形" disabled></select>
-          <button id="startBtn" class="primary" disabled>开始</button>
-          <button id="resetBtn" disabled>重置</button>
-          <button id="followBtn" class="active" disabled>跟随</button>
-          <button id="cmdToggle" disabled>指令</button>
-          <button id="monitorToggle" disabled>监测</button>
+
+        <div class="toolbar">
+          <label class="select-field">
+            <span>机器人</span>
+            <select id="robotSelect" aria-label="选择机器人">
+              <option value="zex-w" selected>ZEX-W（16DOF 轮足）</option>
+            </select>
+          </label>
+          <label class="select-field">
+            <span>策略</span>
+            <select id="policySelect" aria-label="选择策略">
+              <option value="off">无策略（姿态保持）</option>
+              <option value="rough" selected>Rough · model_6800</option>
+              <option value="wall">高墙 · model_84</option>
+            </select>
+          </label>
+          <label class="select-field">
+            <span>地形</span>
+            <select id="terrainSelect">
+              <optgroup label="基础平地">
+                <option value="flat" selected>平地</option>
+              </optgroup>
+              <optgroup label="楼梯台阶">
+                <option value="stairs">台阶</option>
+              </optgroup>
+              <optgroup label="粗糙地形">
+                <option value="rough">随机网格</option>
+              </optgroup>
+              <optgroup label="高墙障碍">
+                <option value="wall">五道高墙</option>
+              </optgroup>
+            </select>
+          </label>
+          <button id="playButton" type="button" title="暂停/继续（Space）">暂停</button>
+          <button id="resetButton" type="button" title="重置仿真（R）">重置</button>
         </div>
-        <output id="commandOut" class="command-output">vx 0.00 · vy 0.00 · ω 0.00</output>
-        <output id="clock" class="clock">0.0 s</output>
-        <span id="engineState" class="pill">正在加载…</span>
-        <span id="fallenBadge" class="pill danger" hidden>已摔倒</span>
       </header>
 
-      <aside id="cmdPanel" class="cmd-panel" aria-label="运动指令" hidden>
-        <div class="panel-heading">
-          <div><p class="panel-kicker">COMMAND</p><strong>运动指令</strong></div>
-          <button id="cmdClose" class="icon-button" aria-label="关闭指令面板">×</button>
+      <aside class="hud panel panel-left is-collapsed">
+        <button id="mobileControlsToggle" class="mobile-panel-toggle" type="button" aria-expanded="false">
+          <span>控制面板</span>
+          <span aria-hidden="true">⌄</span>
+        </button>
+        <div class="status-line">
+          <span id="engineStatus" class="dot-label"><i></i>初始化中</span>
+          <span id="policyStatus" class="dot-label"><i></i>策略</span>
         </div>
-        <p class="panel-copy">键盘 W/S 前后、A/D 横移、Q/E 转向；或用滑杆直接赋值。限幅与真机运行时一致：vx ±0.9 m/s、vy ±0.5 m/s、ω ±1.0 rad/s。</p>
-        <div class="command-settings">
-          <label><span>vx</span><input id="cmdVx" type="range" min="-0.9" max="0.9" step="0.05" value="0" /><output id="cmdVxOut">0.00 m/s</output></label>
-          <label><span>vy</span><input id="cmdVy" type="range" min="-0.5" max="0.5" step="0.05" value="0" /><output id="cmdVyOut">0.00 m/s</output></label>
-          <label><span>ω</span><input id="cmdWz" type="range" min="-1" max="1" step="0.05" value="0" /><output id="cmdWzOut">0.00 rad/s</output></label>
+
+        <div class="model-card">
+          <small>任务</small>
+          <strong id="jobLabel">速度跟踪</strong>
+          <small>机器人</small>
+          <strong id="robotLabel">ZEX-W · 16DOF</strong>
+          <small>模型</small>
+          <strong id="modelLabel">-</strong>
+          <small>健康度</small>
+          <strong id="policyHealthLabel">-</strong>
         </div>
-        <button id="cmdCenter" class="stop-command">归中 / 急停指令</button>
+        <div id="policyHealthChecks" class="health-checks" aria-label="策略健康检查"></div>
+
+        <div class="metric-grid">
+          <div><small>指令 vx</small><strong id="cmdVx">0.00</strong></div>
+          <div><small>指令 vy</small><strong id="cmdVy">0.00</strong></div>
+          <div><small>指令偏航</small><strong id="cmdYaw">0.00</strong></div>
+          <div><small>机身高度</small><strong id="baseHeight">0.00</strong></div>
+          <div><small>局部 vx</small><strong id="velVx">0.00</strong></div>
+          <div><small>局部 vy</small><strong id="velVy">0.00</strong></div>
+          <div><small>局部偏航</small><strong id="velYaw">0.00</strong></div>
+          <div><small>接触数</small><strong id="contacts">0</strong></div>
+        </div>
+
+        <div class="attitude-gauge" id="attitudeGauge" title="机身姿态实时仪表">
+          <div class="att-row"><small>横滚 roll</small>
+            <div class="att-track"><i id="rollBar"></i><b class="att-center"></b></div>
+            <output id="rollVal">0.0°</output>
+          </div>
+          <div class="att-row"><small>俯仰 pitch</small>
+            <div class="att-track"><i id="pitchBar"></i><b class="att-center"></b></div>
+            <output id="pitchVal">0.0°</output>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <div id="velocityCommandControl" class="velocity-command-control">
+            <div class="section-title">
+              <span>速度指令</span>
+            </div>
+            <label class="vel-cmd-row">
+              <span>vx m/s</span>
+              <input id="velCmdVx" type="range" aria-label="速度指令 vx（米每秒）" />
+              <output id="velCmdVxVal">0.00</output>
+              <span class="vel-cmd-max-label" title="vx 上下限（±Max）">Max</span>
+              <input id="velCmdVxMax" class="vel-cmd-max" type="range" min="0.1" max="2" step="0.1" aria-label="vx 上限（米每秒）" />
+              <output id="velCmdVxMaxVal">0.9</output>
+            </label>
+            <label class="vel-cmd-row">
+              <span>vy m/s</span>
+              <input id="velCmdVy" type="range" aria-label="速度指令 vy（米每秒）" />
+              <output id="velCmdVyVal">0.00</output>
+              <span class="vel-cmd-max-label" title="vy 上下限（±Max）">Max</span>
+              <input id="velCmdVyMax" class="vel-cmd-max" type="range" min="0.1" max="2" step="0.1" aria-label="vy 上限（米每秒）" />
+              <output id="velCmdVyMaxVal">0.5</output>
+            </label>
+            <label class="vel-cmd-row">
+              <span>ωz rad/s</span>
+              <input id="velCmdYaw" type="range" aria-label="速度指令偏航角速度（弧度每秒）" />
+              <output id="velCmdYawVal">0.00</output>
+              <span class="vel-cmd-max-label" title="ωz 上下限（±Max）">Max</span>
+              <input id="velCmdYawMax" class="vel-cmd-max" type="range" min="0.1" max="3" step="0.1" aria-label="ωz 上限（弧度每秒）" />
+              <output id="velCmdYawMaxVal">1.0</output>
+            </label>
+            <div class="vel-cmd-actions">
+              <button id="velCmdZero" type="button">归零</button>
+              <label class="vel-cmd-enable"><input id="velCmdEnable" type="checkbox" checked /> <span>启用</span></label>
+            </div>
+          </div>
+          <div class="payload-control">
+            <div class="payload-control-row">
+              <span>附加负载<span class="disturbance-badge" title="扰动注入：给机身挂载质量（负载扰动）">扰动</span></span>
+              <output id="payloadMassLabel">0.0 kg</output>
+            </div>
+            <input id="payloadMass" type="range" min="0" max="10" value="0" step="0.5" aria-label="附加负载（负载扰动）" />
+          </div>
+          <div class="payload-control terrain-friction-control">
+            <div class="payload-control-row">
+              <span>接触摩擦力<span class="disturbance-badge" title="扰动注入：改变地面接触摩擦（地形扰动）">扰动</span></span>
+              <output id="terrainFrictionLabel">0.80</output>
+            </div>
+            <input id="terrainFriction" type="range" min="0" max="1.5" value="0.8" step="0.01" aria-label="接触摩擦力" />
+          </div>
+          <details class="com-offset-control">
+            <summary>
+              <span>重心偏移</span>
+              <output id="comOffsetSummary">0 mm</output>
+            </summary>
+            <div class="com-offset-rows">
+              <label class="com-offset-row">
+                <span>前后 X</span>
+                <input type="range" min="-0.05" max="0.05" value="0" step="0.005" data-com-axis="0" aria-label="重心前后偏移" />
+                <output data-com-value="0">0 mm</output>
+              </label>
+              <label class="com-offset-row">
+                <span>左右 Y</span>
+                <input type="range" min="-0.05" max="0.05" value="0" step="0.005" data-com-axis="1" aria-label="重心左右偏移" />
+                <output data-com-value="1">0 mm</output>
+              </label>
+            </div>
+          </details>
+          <details class="imu-axis-control">
+            <summary>
+              <span>IMU 轴向</span>
+              <output id="imuAxisSummary">原始</output>
+            </summary>
+            <div class="imu-axis-rows">
+              <div class="imu-axis-row" role="group" aria-label="角速度轴向反向">
+                <span>角速度</span>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="angular" data-imu-axis="0" aria-label="角速度 X 轴反向" /><span>X</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="angular" data-imu-axis="1" aria-label="角速度 Y 轴反向" /><span>Y</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="angular" data-imu-axis="2" aria-label="角速度 Z 轴反向" /><span>Z</span></label>
+              </div>
+              <div class="imu-axis-row" role="group" aria-label="重力投影轴向反向">
+                <span>重力投影</span>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="gravity" data-imu-axis="0" aria-label="重力投影 X 轴反向" /><span>X</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="gravity" data-imu-axis="1" aria-label="重力投影 Y 轴反向" /><span>Y</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="gravity" data-imu-axis="2" aria-label="重力投影 Z 轴反向" /><span>Z</span></label>
+              </div>
+            </div>
+          </details>
+          <div class="key-grid" aria-label="键盘指令状态">
+            <kbd id="keyW">W</kbd>
+            <kbd id="keyS">S</kbd>
+            <kbd id="keyA">A</kbd>
+            <kbd id="keyD">D</kbd>
+            <kbd id="keyQ">Q</kbd>
+            <kbd id="keyE">E</kbd>
+          </div>
+        </div>
       </aside>
 
-      <aside id="monitorPanel" class="monitor-panel" aria-label="策略监测" hidden>
-        <div class="panel-heading">
-          <div><p class="panel-kicker">TELEMETRY</p><strong>策略监测</strong></div>
-          <button id="monitorClose" class="icon-button" aria-label="关闭监测面板">×</button>
-        </div>
-        <div class="telemetry-summary"><span>机身 <output id="bodyPos">x 0.00 · y 0.00 · z 0.420</output></span><span><output id="inferOut">推理 0.0 ms</output></span></div>
-        <p class="panel-copy">策略动作输出（16 维原始值，正值蓝 / 负值红）：</p>
-        <canvas id="actionChart" width="320" height="72" aria-label="策略动作输出"></canvas>
-        <p class="panel-copy">53 维观测分段（gyro / 重力 / 指令 / 腿位置 / 腿速度 / 轮速度 / 上步动作）：</p>
-        <canvas id="obsChart" width="320" height="110" aria-label="观测向量"></canvas>
-        <div id="actionValues" class="action-values" aria-label="各关节动作输出"></div>
-      </aside>
+      <footer class="hud footer">
+        <label><input id="followToggle" type="checkbox" checked /> 跟随</label>
+        <label><input id="collisionToggle" type="checkbox" /> 碰撞体</label>
+        <label><input id="wireToggle" type="checkbox" /> 线框</label>
+        <label><input id="trailToggle" type="checkbox" /> 轨迹</label>
+        <label><input id="shadowToggle" type="checkbox" checked /> 光影</label>
+        <button id="fitViewButton" type="button" title="按模型包围盒自适应取景">取景</button>
+        <span id="simClock">时间 0.00</span>
+        <span id="perfStats">0 帧/秒 · 0x</span>
+      </footer>
     </main>
-    <script type="module" src="./assets/js/app.js"></script>
+
+    <script type="module" src="./assets/js/app.js?v=2.0.0"></script>
   </body>
 </html>

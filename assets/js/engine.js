@@ -18,11 +18,16 @@ export class WheelLegSim {
     this.baseUrl = baseUrl;           // assets/models/ 的绝对 URL
     this.phase = "idle";              // idle|booting|ready|running|paused
     this.activePolicy = "rough";
+    this.policyEnabled = true;        // false = 无策略（PD 姿态保持）
     this.command = { vx: 0, vy: 0, wz: 0 };
-    this.telemetry = { x: 0, y: 0, z: INIT_HEIGHT, tilt: 0, speed: 0, steps: 0, inferMs: 0, fallen: false };
+    this.telemetry = { x: 0, y: 0, z: INIT_HEIGHT, tilt: 0, speed: 0, steps: 0, inferMs: 0, fallen: false, fps: 0, realtime: 0 };
     this._lastAction = { rough: new Float32Array(16), wall: new Float32Array(16) };
     this._blend = null;               // { from, to, step }
     this._ortReady = false;
+    this._actionQueue = [];           // 动作延迟队列
+    this._actionDelay = 0;
+    this._disturbance = { payload: 0, friction: 0.8, comX: 0, comY: 0 };
+    this._base = { mass: 0, ipos: [0, 0, 0] };
   }
 
   async boot(onProgress = () => {}) {
@@ -94,8 +99,39 @@ export class WheelLegSim {
       WHEEL_LEG_JUMP_OBSERVATION: 0, WHEEL_LEG_JUMP_PERIOD_S: 0.6,
     };
     this.obsSystem = createObservationSystems(ctx);
+    this.readImuSample = ctx.readImuSample;
     this.reset();
+    this._captureBase();
+    this._applyDisturbance();
   }
+
+  _captureBase() {
+    // 机身（base_link，body 1）的质量与质心基准，供扰动增量修改
+    this._base.mass = this.model.body_mass[1];
+    this._base.ipos = [this.model.body_ipos[1 * 3], this.model.body_ipos[1 * 3 + 1], this.model.body_ipos[1 * 3 + 2]];
+  }
+
+  _applyDisturbance() {
+    const d = this._disturbance;
+    // 附加负载：机身质量
+    this.model.body_mass[1] = this._base.mass + d.payload;
+    // 重心偏移：机身质心
+    this.model.body_ipos[1 * 3] = this._base.ipos[0] + d.comX;
+    this.model.body_ipos[1 * 3 + 1] = this._base.ipos[1] + d.comY;
+    this.model.body_ipos[1 * 3 + 2] = this._base.ipos[2];
+    // 接触摩擦力：世界体几何（地板与地形），轮子摩擦保持训练值
+    for (let g = 0; g < this.model.ngeom; g += 1) {
+      if (this.model.geom_bodyid[g] === 0 && this.model.geom_type[g] !== 7) {
+        this.model.geom_friction[g * 3] = d.friction;
+      }
+    }
+  }
+
+  setPayload(kg) { this._disturbance.payload = kg; this._applyDisturbance(); }
+  setFriction(v) { this._disturbance.friction = v; this._applyDisturbance(); }
+  setComOffset(x, y) { this._disturbance.comX = x; this._disturbance.comY = y; this._applyDisturbance(); }
+  setActionDelay(n) { this._actionDelay = Math.max(0, Math.min(10, n | 0)); this._actionQueue = []; }
+  setImuSigns(vector, axis, sign) { this.input.imuAxisSigns[vector][axis] = sign; }
 
   reset() {
     const d = this.data;
@@ -110,11 +146,18 @@ export class WheelLegSim {
     this._lastAction.rough.fill(0);
     this._lastAction.wall.fill(0);
     this._blend = null;
+    this._actionQueue = [];
     this.telemetry.steps = 0;
     this.telemetry.fallen = false;
   }
 
   switchPolicy(id) {
+    if (id === "off") {
+      this.policyEnabled = false;
+      this._blend = null;
+      return;
+    }
+    this.policyEnabled = true;
     if (!this.sessions[id] || id === this.activePolicy) return;
     this._blend = { from: this.activePolicy, to: id, step: 0 };
     this.activePolicy = id;
@@ -127,36 +170,50 @@ export class WheelLegSim {
   }
 
   async controlStep() {
-    if (!this._ortReady) return;
     const t0 = performance.now();
     const { sim, data, maps } = this;
     sim.cmd[0] = this.command.vx;
     sim.cmd[1] = this.command.vy;
     sim.cmd[2] = this.command.wz;
 
-    // 双策略推理（切换时按 policy_runner 方式线性混合）
-    const runOne = async (id) => {
-      sim.action.set(this._lastAction[id]);
-      this.obsSystem.buildObservation();
-      for (let i = 0; i < 53; i += 1) sim.obs[i] = clamp(sim.obs[i], -100, 100);
-      const r = await this.sessions[id].run({ obs: new ort.Tensor("float32", sim.obs, [1, 53]) });
-      const out = r.action ?? r[Object.keys(r)[0]];
-      const raw = out.data;
-      this._lastAction[id].set(raw);
-      return raw;
-    };
-
     let raw;
-    if (this._blend) {
-      const a = await runOne(this._blend.from);
-      const b = await runOne(this._blend.to);
-      const alpha = Math.min(1, this._blend.step / BLEND_STEPS);
+    if (!this.policyEnabled || !this._ortReady) {
+      // 无策略：PD 保持默认站姿（raw = 0 → 目标 = 默认位姿）
       raw = new Float32Array(16);
-      for (let i = 0; i < 16; i += 1) raw[i] = (1 - alpha) * a[i] + alpha * b[i];
-      this._blend.step += 1;
-      if (this._blend.step >= BLEND_STEPS) this._blend = null;
+      this._lastAction[this.activePolicy].fill(0);
     } else {
-      raw = await runOne(this.activePolicy);
+      // 双策略推理（切换时按 policy_runner 方式线性混合）
+      const runOne = async (id) => {
+        sim.action.set(this._lastAction[id]);
+        this.obsSystem.buildObservation();
+        for (let i = 0; i < 53; i += 1) sim.obs[i] = clamp(sim.obs[i], -100, 100);
+        const r = await this.sessions[id].run({ obs: new ort.Tensor("float32", sim.obs, [1, 53]) });
+        const out = r.action ?? r[Object.keys(r)[0]];
+        const rawOut = out.data;
+        this._lastAction[id].set(rawOut);
+        return rawOut;
+      };
+
+      if (this._blend) {
+        const a = await runOne(this._blend.from);
+        const b = await runOne(this._blend.to);
+        const alpha = Math.min(1, this._blend.step / BLEND_STEPS);
+        raw = new Float32Array(16);
+        for (let i = 0; i < 16; i += 1) raw[i] = (1 - alpha) * a[i] + alpha * b[i];
+        this._blend.step += 1;
+        if (this._blend.step >= BLEND_STEPS) this._blend = null;
+      } else {
+        raw = await runOne(this.activePolicy);
+      }
+    }
+
+    // 动作延迟（对齐训练域随机化 0~2 步语义）
+    if (this._actionDelay > 0) {
+      this._actionQueue.push(raw);
+      if (this._actionQueue.length > this._actionDelay + 1) this._actionQueue.shift();
+      raw = this._actionQueue[0];
+    } else if (this._actionQueue.length) {
+      this._actionQueue = [];
     }
 
     for (let i = 0; i < 16; i += 1) {
@@ -169,6 +226,8 @@ export class WheelLegSim {
     tel.x = data.qpos[0]; tel.y = data.qpos[1]; tel.z = data.qpos[2];
     tel.tilt = Math.hypot(sim.obs[3], sim.obs[4]);
     tel.speed = Math.hypot(data.qvel[0], data.qvel[1]);
+    tel.yawRate = data.qvel[5];
+    tel.contacts = data.ncon;
     tel.steps += 1;
     tel.inferMs = performance.now() - t0;
     tel.fallen = data.qpos[2] < 0.18 || tel.tilt > 1.2;

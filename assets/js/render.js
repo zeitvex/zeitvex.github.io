@@ -1,10 +1,11 @@
-// Three.js 渲染器：读取抽稀网格（verts.bin/idx.bin/meshes.json），
-// 按 MuJoCo 编译后的 geom 世界位姿逐帧驱动机器人。
+// Three.js 渲染器：几何体直接取自 MuJoCo 编译后的 mesh_vert/mesh_face
+// （本 wasm 构建会重中心化 mesh 顶点并用 geom_pos/quat 补偿，自建几何体必须
+// 用同一份数据），按 geom 世界位姿逐帧驱动。支持碰撞体/线框/轨迹/光影开关。
 import * as THREE from "three";
 import { OrbitControls } from "../vendor/three/OrbitControls.js";
 
-const MJ_OBJ_MESH = 10;
 const MJ_GEOM_PLANE = 0, MJ_GEOM_SPHERE = 2, MJ_GEOM_CAPSULE = 3, MJ_GEOM_CYLINDER = 5, MJ_GEOM_BOX = 6, MJ_GEOM_MESH = 7;
+const TRAIL_MAX = 4000;
 
 function checkerTexture() {
   const c = document.createElement("canvas");
@@ -31,34 +32,49 @@ export class SimRenderer {
     this.sim = sim;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0d13);
-    this.camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.05, 200);
+    this.camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.05, 300);
     this.camera.position.set(1.7, -2.4, 1.3);
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.target.set(0, 0, 0.45);
     this.controls.enableDamping = true;
     this.follow = true;
-    this._prevBase = new THREE.Vector3();
 
     const hemi = new THREE.HemisphereLight(0x8fb4d9, 0x1a1410, 0.85);
     this.scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 1.6);
-    dir.position.set(3, -2, 5);
-    this.scene.add(dir);
+    this.sun = new THREE.DirectionalLight(0xffffff, 1.6);
+    this.sun.position.set(3, -2, 5);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.camera.left = -6; this.sun.shadow.camera.right = 6;
+    this.sun.shadow.camera.top = 6; this.sun.shadow.camera.bottom = -6;
+    this.sun.shadow.camera.far = 30;
+    this.scene.add(this.sun);
     const fill = new THREE.DirectionalLight(0x88aaff, 0.4);
     fill.position.set(-3, 2, 2);
     this.scene.add(fill);
 
-    this.geomObjects = [];
-    this._floorAdded = false;
+    this.geomObjects = [];     // 可见对象（mesh + 地形）
+    this.colliderObjects = []; // 机身碰撞体（默认隐藏）
+    this._prevBase = new THREE.Vector3();
+    this._fpsFrames = 0;
+    this._fpsTime = performance.now();
+    this._lastSimTime = 0;
+    this._trailPositions = new Float32Array(TRAIL_MAX * 3);
+    this._trailCount = 0;
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute("position", new THREE.BufferAttribute(this._trailPositions, 3));
+    trailGeo.setDrawRange(0, 0);
+    this.trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0x5ec1ff, transparent: true, opacity: 0.85 }));
+    this.trail.frustumCulled = false;
+    this.trail.visible = false;
+    this.scene.add(this.trail);
   }
 
-  async load() {
-    // 几何体直接取自 MuJoCo 编译后的 mesh_vert/mesh_face（本构建会重中心化 mesh
-    // 顶点并用 geom_pos/quat 补偿；自建几何体必须用同一份数据，否则变换错位）。
-    this.build();
-  }
+  async load() { this.build(); }
 
   meshGeometry(meshId) {
     const m = this.sim.model;
@@ -80,12 +96,13 @@ export class SimRenderer {
   }
 
   build() {
-    const { model, mujoco } = this.sim;
-    const robotMat = new THREE.MeshStandardMaterial({ color: 0xb9bec7, metalness: 0.55, roughness: 0.38 });
-    const terrainMat = new THREE.MeshStandardMaterial({ color: 0x5b6572, metalness: 0.1, roughness: 0.9 });
+    const { model } = this.sim;
+    this.robotMat = this.robotMat || new THREE.MeshStandardMaterial({ color: 0xb9bec7, metalness: 0.55, roughness: 0.38 });
+    this.terrainMat = this.terrainMat || new THREE.MeshStandardMaterial({ color: 0x5b6572, metalness: 0.1, roughness: 0.9 });
+    this.colliderMat = this.colliderMat || new THREE.MeshStandardMaterial({ color: 0x2f6f4f, metalness: 0.1, roughness: 0.6, transparent: true, opacity: 0.55 });
     this.geomObjects = [];
+    this.colliderObjects = [];
     this._floorAdded = false;
-    // 清掉旧机器人（地形切换时重建）
     if (this.robotRoot) {
       this.scene.remove(this.robotRoot);
       this.robotRoot.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
@@ -111,31 +128,93 @@ export class SimRenderer {
           new THREE.MeshStandardMaterial({ map: checkerTexture(), roughness: 0.95, metalness: 0 }),
         );
         floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
         this.scene.add(floor);
         this.floorMesh = floor;
         continue;
       }
-      // 机身碰撞盒（body != world 的图元）不渲染：与 MuJoCo 默认视图一致，
-      // 视觉由 mesh 提供；世界体中的图素（地形）保留。
-      if (type !== MJ_GEOM_MESH && model.geom_bodyid[i] !== 0) continue;
+      const isRobotCollider = type !== MJ_GEOM_MESH && model.geom_bodyid[i] !== 0;
       if (type === MJ_GEOM_MESH) {
         const geo = this.meshGeometry(model.geom_dataid[i]);
         if (!geo) continue;
-        obj = new THREE.Mesh(geo, robotMat);
+        obj = new THREE.Mesh(geo, this.robotMat);
+        obj.castShadow = true;
       } else if (type === MJ_GEOM_BOX) {
-        obj = new THREE.Mesh(new THREE.BoxGeometry(size[0] * 2, size[1] * 2, size[2] * 2), terrainMat);
+        obj = new THREE.Mesh(new THREE.BoxGeometry(size[0] * 2, size[1] * 2, size[2] * 2), isRobotCollider ? this.colliderMat : this.terrainMat);
+        obj.castShadow = !isRobotCollider;
+        obj.receiveShadow = !isRobotCollider;
       } else if (type === MJ_GEOM_CYLINDER) {
-        obj = new THREE.Mesh(new THREE.CylinderGeometry(size[0], size[0], size[1] * 2, 20), robotMat);
+        obj = new THREE.Mesh(new THREE.CylinderGeometry(size[0], size[0], size[1] * 2, 20), isRobotCollider ? this.colliderMat : this.robotMat);
+        obj.castShadow = !isRobotCollider;
       } else if (type === MJ_GEOM_SPHERE) {
-        obj = new THREE.Mesh(new THREE.SphereGeometry(size[0], 16, 12), robotMat);
+        obj = new THREE.Mesh(new THREE.SphereGeometry(size[0], 16, 12), isRobotCollider ? this.colliderMat : this.robotMat);
+        obj.castShadow = !isRobotCollider;
       } else if (type === MJ_GEOM_CAPSULE) {
-        obj = new THREE.Mesh(new THREE.CapsuleGeometry(size[0], size[1] * 2, 6, 12), robotMat);
+        obj = new THREE.Mesh(new THREE.CapsuleGeometry(size[0], size[1] * 2, 6, 12), isRobotCollider ? this.colliderMat : this.robotMat);
+        obj.castShadow = !isRobotCollider;
       }
       if (!obj) continue;
       obj.userData.geomId = i;
+      obj.visible = !isRobotCollider;
       this.robotRoot.add(obj);
-      this.geomObjects.push(obj);
+      (isRobotCollider ? this.colliderObjects : this.geomObjects).push(obj);
     }
+    this.clearTrail();
+  }
+
+  setCollisionVisible(v) { for (const o of this.colliderObjects) o.visible = v; }
+  setWireframe(v) {
+    for (const m of [this.robotMat, this.terrainMat]) m.wireframe = v;
+  }
+  setShadows(v) {
+    this.renderer.shadowMap.enabled = v;
+    this.sun.castShadow = v;
+    this.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+  }
+
+  clearTrail() {
+    this._trailCount = 0;
+    this.trail.geometry.setDrawRange(0, 0);
+  }
+
+  pushTrail() {
+    const d = this.sim.data;
+    if (this._trailCount >= TRAIL_MAX) {
+      this._trailPositions.copyWithin(0, 3);
+      this._trailCount = TRAIL_MAX - 1;
+    }
+    const o = this._trailCount * 3;
+    this._trailPositions[o] = d.qpos[0];
+    this._trailPositions[o + 1] = d.qpos[1];
+    this._trailPositions[o + 2] = 0.01;
+    this._trailCount += 1;
+    this.trail.geometry.setDrawRange(0, this._trailCount);
+    this.trail.geometry.attributes.position.needsUpdate = true;
+    this.trail.geometry.computeBoundingSphere();
+  }
+
+  fitView() {
+    const box = new THREE.Box3();
+    for (const obj of this.geomObjects) {
+      obj.geometry.computeBoundingBox();
+      const bb = obj.geometry.boundingBox;
+      for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
+        box.expandByPoint(obj.localToWorld(new THREE.Vector3(x, y, z)));
+      }
+    }
+    if (box.isEmpty()) return;
+    const c = box.getCenter(new THREE.Vector3());
+    const r = box.getSize(new THREE.Vector3()).length() / 2;
+    const dir = new THREE.Vector3(0.75, -1.3, 0.7).normalize();
+    this.controls.target.copy(c);
+    this.camera.position.copy(c).addScaledVector(dir, Math.max(1.2, r * 1.9));
+  }
+
+  flipView() {
+    const t = this.controls.target;
+    const off = this.camera.position.clone().sub(t);
+    off.x = -off.x; off.y = -off.y;
+    this.camera.position.copy(t).add(off);
   }
 
   sync() {
@@ -143,9 +222,19 @@ export class SimRenderer {
     const qb = new THREE.Quaternion();
     const qg = new THREE.Quaternion();
     for (const obj of this.geomObjects) {
+      if (!obj.visible) continue;
       const i = obj.userData.geomId;
       obj.position.set(data.geom_xpos[i * 3], data.geom_xpos[i * 3 + 1], data.geom_xpos[i * 3 + 2]);
       // 本 wasm 构建不暴露 geom_xquat：世界姿态 = 机身世界四元数 ⊗ geom 局部四元数
+      const b = model.geom_bodyid[i];
+      qb.set(data.xquat[b * 4 + 1], data.xquat[b * 4 + 2], data.xquat[b * 4 + 3], data.xquat[b * 4]);
+      qg.set(model.geom_quat[i * 4 + 1], model.geom_quat[i * 4 + 2], model.geom_quat[i * 4 + 3], model.geom_quat[i * 4]);
+      obj.quaternion.multiplyQuaternions(qb, qg);
+    }
+    for (const obj of this.colliderObjects) {
+      if (!obj.visible) continue;
+      const i = obj.userData.geomId;
+      obj.position.set(data.geom_xpos[i * 3], data.geom_xpos[i * 3 + 1], data.geom_xpos[i * 3 + 2]);
       const b = model.geom_bodyid[i];
       qb.set(data.xquat[b * 4 + 1], data.xquat[b * 4 + 2], data.xquat[b * 4 + 3], data.xquat[b * 4]);
       qg.set(model.geom_quat[i * 4 + 1], model.geom_quat[i * 4 + 2], model.geom_quat[i * 4 + 3], model.geom_quat[i * 4]);
@@ -158,12 +247,25 @@ export class SimRenderer {
       this.camera.position.add(delta);
     }
     this._prevBase.copy(base);
+    if (this.trail.visible) this.pushTrail();
   }
 
   resize(w, h) {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
+  }
+
+  render() {
+    this.controls.update();
+    this.renderer.render(this.scene, this.camera);
+    this._fpsFrames += 1;
+    const now = performance.now();
+    if (now - this._fpsTime >= 500) {
+      this.sim.telemetry.fps = Math.round((this._fpsFrames * 1000) / (now - this._fpsTime));
+      this._fpsFrames = 0;
+      this._fpsTime = now;
+    }
   }
 
   /** 客观对齐验证：mesh 世界包围盒 vs 碰撞盒（MuJoCo 数据直算）；所有对象不得嵌入地板。 */
@@ -185,7 +287,6 @@ export class SimRenderer {
       return { min: mn, max: mx };
     };
     const out = { pairs: [], minZ: 1e9, geomCount: this.geomObjects.length };
-    // 按名字定位机身碰撞盒（场景切换后 geom id 会变）
     let boxId = -1;
     for (let g = 0; g < model.ngeom; g += 1) {
       if (mujoco.mj_id2name(model, 5, g) === "base_link_col1") { boxId = g; break; }
@@ -194,7 +295,6 @@ export class SimRenderer {
       const meshObj = this.geomObjects.find((o) => o.userData.geomId === boxId - 1);
       if (meshObj) {
         const a = bboxOf(corners(meshObj));
-        // 碰撞盒：MuJoCo 世界位姿 + 半尺寸，直算 8 角
         const s = [model.geom_size[boxId * 3], model.geom_size[boxId * 3 + 1], model.geom_size[boxId * 3 + 2]];
         const p0 = [data.geom_xpos[boxId * 3], data.geom_xpos[boxId * 3 + 1], data.geom_xpos[boxId * 3 + 2]];
         const xm = Array.from(data.geom_xmat.subarray(boxId * 9, boxId * 9 + 9));
@@ -210,12 +310,11 @@ export class SimRenderer {
         out.pairs.push({
           pair: "base_link mesh vs collider box",
           diff: [0, 1, 2].map((i) => +Math.max(Math.abs(a.min[i] - b.min[i]), Math.abs(a.max[i] - b.max[i])).toFixed(4)),
-          mesh: { min: a.min.map((v) => +v.toFixed(3)), max: a.max.map((v) => +v.toFixed(3)) },
-          box: { min: b.min.map((v) => +v.toFixed(3)), max: b.max.map((v) => +v.toFixed(3)) },
         });
       }
     }
     for (const obj of this.geomObjects) {
+      if (!obj.visible) continue;
       const bb = bboxOf(corners(obj));
       out.minZ = Math.min(out.minZ, bb.min[2]);
     }
@@ -224,10 +323,5 @@ export class SimRenderer {
     out.minZ = +out.minZ.toFixed(4);
     out.minZLimit = -0.06;
     return out;
-  }
-
-  render() {
-    this.controls.update();
-    this.renderer.render(this.scene, this.camera);
   }
 }
