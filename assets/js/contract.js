@@ -53,9 +53,9 @@ export const PHYSICS_DT = 0.005;   // 200 Hz（env_cfgs.py: timestep=0.005）
 export const DECIMATION = 4;       // 控制降采样
 export const POLICY_DT = 0.02;     // 50 Hz 策略周期
 export const INIT_HEIGHT = 0.42;   // 初始机身高度
-export const SETTLE_STEPS = 500;   // 落地沉降步数
+export const SETTLE_STEPS = 250;   // 落地沉降步数（约 0.6 s）
 export const BLEND_STEPS = 50;     // 策略切换线性混合步数（1.0 s @ 50Hz）
-export const CMD_LIMITS = { vx: 0.9, vy: 0.5, wz: 1.0 };
+export const CMD_LIMITS = { vx: 1.0, vy: 1.0, wz: 1.0 };  // 指令上限统一 1.0
 export const CLIP_OBS = 100.0;
 
 export const POLICIES = [

@@ -25,7 +25,7 @@ const ui = {
 };
 
 // 指令状态：摇杆优先，其次键盘
-const assign = { vx: 0.6, vy: 0.3, wz: 0.6 };
+const assign = { vx: 0.6, vy: 0.5, wz: 0.6 };
 const joy = { vx: 0, vy: 0, wz: 0, active: false };
 const keys = new Set();
 
@@ -172,8 +172,9 @@ function setRunning(v) {
 ui.start.addEventListener("click", () => setRunning(!running));
 ui.reset.addEventListener("click", () => { sim.reset(); renderer && renderer.clearTrail(); });
 
-ui.policy.addEventListener("change", () => {
+ui.policy.addEventListener("change", async () => {
   const id = ui.policy.value;
+  if (id !== "off") await sim.ensurePolicy(id); // 首次切换按需拉权重（约 0.7 MB）
   sim.switchPolicy(id);
   const p = POLICIES.find((x) => x.id === id);
   ui.policy.title = p && p.note ? p.note : "";

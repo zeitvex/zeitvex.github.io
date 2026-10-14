@@ -34,10 +34,32 @@ export class WheelLegSim {
   async boot(onProgress = () => {}) {
     this.phase = "booting";
     onProgress("加载 MuJoCo WebAssembly", 0.05);
-    this.mujoco = await loadMujoco();
+    // 流式读取 wasm 以获得真实下载进度，编译时直接传字节（避免二次请求）
+    const wasmUrl = new URL("../vendor/mujoco/mujoco.wasm", import.meta.url).href;
+    const resp = await fetch(wasmUrl);
+    const total = Number(resp.headers.get("content-length") || 0);
+    if (resp.body && total) {
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let got = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        got += value.length;
+        const mb = (got / 1048576).toFixed(1);
+        onProgress(`加载 MuJoCo WebAssembly ${mb} / ${(total / 1048576).toFixed(1)} MB`, 0.05 + 0.4 * (got / total));
+      }
+      const wasmBinary = new Uint8Array(got);
+      let off = 0;
+      for (const c of chunks) { wasmBinary.set(c, off); off += c.length; }
+      this.mujoco = await loadMujoco({ wasmBinary });
+    } else {
+      this.mujoco = await loadMujoco();
+    }
     const FS = this.mujoco.FS;
     if (!FS) throw new Error("MuJoCo WASM 未暴露文件系统");
-    onProgress("写入模型与网格", 0.2);
+    onProgress("写入模型与网格", 0.5);
     for (const d of ["/model", "/model/meshes"]) {
       try { FS.mkdir(d); } catch { /* 已存在 */ }
     }
@@ -51,18 +73,23 @@ export class WheelLegSim {
       const r = await fetch(`${this.baseUrl}meshes/${name}.STL`);
       FS.writeFile(`/model/meshes/${name}.STL`, new Uint8Array(await r.arrayBuffer()));
     }
-    onProgress("编译 MuJoCo 模型", 0.45);
+    onProgress("编译 MuJoCo 模型", 0.7);
     this.loadScene("scene_flat.xml");
-    onProgress("加载比赛策略权重", 0.6);
+    onProgress("加载比赛策略权重", 0.8);
     this.sessions = {};
-    for (const p of POLICIES) {
-      const r = await fetch(`${this.baseUrl}weights/${p.id === "rough" ? "model_6800" : "model_84"}.bin`);
-      this.sessions[p.id] = new JsPolicy(await r.arrayBuffer());
-    }
+    await this.ensurePolicy("rough"); // 默认策略即载；其余按需
     this._ortReady = true;
     onProgress("就绪", 1);
     this.phase = "ready";
     return this;
+  }
+
+  /** 按需加载策略权重（wall 首次切换时拉取，约 0.7 MB） */
+  async ensurePolicy(id) {
+    if (this.sessions[id]) return;
+    const file = id === "rough" ? "model_6800" : "model_84";
+    const r = await fetch(`${this.baseUrl}weights/${file}.bin`);
+    this.sessions[id] = new JsPolicy(await r.arrayBuffer());
   }
 
   loadScene(file) {
