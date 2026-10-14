@@ -1,7 +1,8 @@
-// RC_WheelLeg 浏览器仿真引擎：MuJoCo WASM 物理 + ONNX Runtime Web 策略推理。
+// RC_WheelLeg 浏览器仿真引擎：MuJoCo WASM 物理 + 纯 JS 策略推理（与比赛 ONNX
+// 逐位对拍，见 tools/export_weights.py 与 _validate/parity.mjs）。
 // 与 _validate/rollout.mjs 同一条管线（Node 端到端已验证），本文件无 DOM 依赖。
 import loadMujoco from "../vendor/mujoco/mujoco.js";
-import * as ort from "../vendor/ort/ort.all.min.mjs";
+import { JsPolicy } from "./policy.js";
 import { createObservationSystems } from "./obs/observation_builders.js";
 import { imuSampleFromQpos, clamp } from "./utils.js";
 import {
@@ -52,14 +53,11 @@ export class WheelLegSim {
     }
     onProgress("编译 MuJoCo 模型", 0.45);
     this.loadScene("scene_flat.xml");
-    onProgress("加载比赛策略 ONNX", 0.6);
-    ort.env.wasm.wasmPaths = new URL("../vendor/ort/", import.meta.url).href;
-    ort.env.wasm.numThreads = 1;      // GitHub Pages 无 COOP/COEP，禁用线程
-    ort.env.logLevel = "error";
+    onProgress("加载比赛策略权重", 0.6);
     this.sessions = {};
     for (const p of POLICIES) {
-      const r = await fetch(`${this.baseUrl}${p.file}`);
-      this.sessions[p.id] = await ort.InferenceSession.create(new Uint8Array(await r.arrayBuffer()));
+      const r = await fetch(`${this.baseUrl}weights/${p.id === "rough" ? "model_6800" : "model_84"}.bin`);
+      this.sessions[p.id] = new JsPolicy(await r.arrayBuffer());
     }
     this._ortReady = true;
     onProgress("就绪", 1);
@@ -183,27 +181,25 @@ export class WheelLegSim {
       this._lastAction[this.activePolicy].fill(0);
     } else {
       // 双策略推理（切换时按 policy_runner 方式线性混合）
-      const runOne = async (id) => {
+      const runOne = (id) => {
         sim.action.set(this._lastAction[id]);
         this.obsSystem.buildObservation();
         for (let i = 0; i < 53; i += 1) sim.obs[i] = clamp(sim.obs[i], -100, 100);
-        const r = await this.sessions[id].run({ obs: new ort.Tensor("float32", sim.obs, [1, 53]) });
-        const out = r.action ?? r[Object.keys(r)[0]];
-        const rawOut = out.data;
+        const rawOut = this.sessions[id].run(sim.obs);
         this._lastAction[id].set(rawOut);
         return rawOut;
       };
 
       if (this._blend) {
-        const a = await runOne(this._blend.from);
-        const b = await runOne(this._blend.to);
+        const a = runOne(this._blend.from);
+        const b = runOne(this._blend.to);
         const alpha = Math.min(1, this._blend.step / BLEND_STEPS);
         raw = new Float32Array(16);
         for (let i = 0; i < 16; i += 1) raw[i] = (1 - alpha) * a[i] + alpha * b[i];
         this._blend.step += 1;
         if (this._blend.step >= BLEND_STEPS) this._blend = null;
       } else {
-        raw = await runOne(this.activePolicy);
+        raw = runOne(this.activePolicy);
       }
     }
 

@@ -11,9 +11,9 @@ function checkerTexture() {
   const c = document.createElement("canvas");
   c.width = c.height = 256;
   const g = c.getContext("2d");
-  g.fillStyle = "#1b2430";
+  g.fillStyle = "#2b3542";
   g.fillRect(0, 0, 256, 256);
-  g.fillStyle = "#232f3d";
+  g.fillStyle = "#333e4c";
   const n = 8, s = 256 / n;
   for (let i = 0; i < n; i += 1) {
     for (let j = 0; j < n; j += 1) {
@@ -27,35 +27,58 @@ function checkerTexture() {
   return tex;
 }
 
+function skyTexture() {
+  // 垂直渐变天空：顶 #2b3a4d → 地平线 #1a2530 → 底 #10161d（替代纯黑背景）
+  const c = document.createElement("canvas");
+  c.width = 4; c.height = 256;
+  const g = c.getContext("2d");
+  const grad = g.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, "#31435a");
+  grad.addColorStop(0.55, "#1d2a38");
+  grad.addColorStop(1, "#0e141b");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 export class SimRenderer {
   constructor(canvas, sim) {
     this.sim = sim;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
+    // preserveDrawingBuffer 仅调试模式（?debug=1）开启：它会让每帧保留后台缓冲，
+    // 真实 GPU / 移动端上有明显开销。测试截图走 ?debug。
+    const debug = new URLSearchParams(location.search).has("debug");
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: debug });
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0d13);
+    this.scene.background = skyTexture();
+    this.scene.fog = new THREE.Fog(0x243141, 14, 65);
     this.camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.05, 300);
+    this.camera.up.set(0, 0, 1); // Z-up 世界（MuJoCo 约定）：相机与 OrbitControls 的上方向必须是 +Z
     this.camera.position.set(1.7, -2.4, 1.3);
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.target.set(0, 0, 0.45);
     this.controls.enableDamping = true;
     this.follow = true;
 
-    const hemi = new THREE.HemisphereLight(0x8fb4d9, 0x1a1410, 0.85);
+    const hemi = new THREE.HemisphereLight(0xa8c8e8, 0x2a2620, 1.15);
     this.scene.add(hemi);
-    this.sun = new THREE.DirectionalLight(0xffffff, 1.6);
+    this.sun = new THREE.DirectionalLight(0xffffff, 2.1);
     this.sun.position.set(3, -2, 5);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.castShadow = false;
+    this.sun.shadow.mapSize.set(1024, 1024);
     this.sun.shadow.camera.left = -6; this.sun.shadow.camera.right = 6;
     this.sun.shadow.camera.top = 6; this.sun.shadow.camera.bottom = -6;
     this.sun.shadow.camera.far = 30;
     this.scene.add(this.sun);
-    const fill = new THREE.DirectionalLight(0x88aaff, 0.4);
+    const fill = new THREE.DirectionalLight(0x9db8ff, 0.55);
     fill.position.set(-3, 2, 2);
     this.scene.add(fill);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
 
     this.geomObjects = [];     // 可见对象（mesh + 地形）
     this.colliderObjects = []; // 机身碰撞体（默认隐藏）
@@ -97,8 +120,8 @@ export class SimRenderer {
 
   build() {
     const { model } = this.sim;
-    this.robotMat = this.robotMat || new THREE.MeshStandardMaterial({ color: 0xb9bec7, metalness: 0.55, roughness: 0.38 });
-    this.terrainMat = this.terrainMat || new THREE.MeshStandardMaterial({ color: 0x5b6572, metalness: 0.1, roughness: 0.9 });
+    this.robotMat = this.robotMat || new THREE.MeshStandardMaterial({ color: 0xccd2da, metalness: 0.25, roughness: 0.5 });
+    this.terrainMat = this.terrainMat || new THREE.MeshStandardMaterial({ color: 0x707d8a, metalness: 0.1, roughness: 0.85 });
     this.colliderMat = this.colliderMat || new THREE.MeshStandardMaterial({ color: 0x2f6f4f, metalness: 0.1, roughness: 0.6, transparent: true, opacity: 0.55 });
     this.geomObjects = [];
     this.colliderObjects = [];
@@ -111,6 +134,11 @@ export class SimRenderer {
       this.scene.remove(this.floorMesh);
       this.floorMesh.geometry.dispose();
       this.floorMesh = null;
+    }
+    if (this.grid) {
+      this.scene.remove(this.grid);
+      this.grid.geometry.dispose();
+      this.grid = null;
     }
     this.robotRoot = new THREE.Group();
     this.scene.add(this.robotRoot);
@@ -127,10 +155,19 @@ export class SimRenderer {
           new THREE.PlaneGeometry(80, 80),
           new THREE.MeshStandardMaterial({ map: checkerTexture(), roughness: 0.95, metalness: 0 }),
         );
-        floor.rotation.x = -Math.PI / 2;
+        // 世界为 Z-up（MuJoCo 约定）：PlaneGeometry 默认位于 XY 平面、法线 +Z，
+        // 即为水平地面，不能再旋转（rotation.x = -PI/2 会把它立起来）。
         floor.receiveShadow = true;
         this.scene.add(floor);
         this.floorMesh = floor;
+        // 网格参考线：增强尺度感（淡色，不抢戏）
+        const grid = new THREE.GridHelper(80, 80, 0x46566a, 0x2c3a48);
+        grid.rotation.x = -Math.PI / 2;
+        grid.position.z = 0.002;
+        const gm = grid.material;
+        if (gm.transparent !== false) { gm.transparent = true; gm.opacity = 0.5; }
+        this.scene.add(grid);
+        this.grid = grid;
         continue;
       }
       const isRobotCollider = type !== MJ_GEOM_MESH && model.geom_bodyid[i] !== 0;

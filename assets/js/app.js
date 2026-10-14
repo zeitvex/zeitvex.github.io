@@ -1,7 +1,7 @@
-// UI 驱动：legged_studio 基础仿真 HUD 绑定到 RC_WheelLeg 静态引擎。
+// UI 驱动：LainLab playground 外壳 + RC_WheelLeg 静态引擎（双端：桌面键鼠 / 手机摇杆）。
 import { WheelLegSim } from "./engine.js";
 import { SimRenderer } from "./render.js";
-import { POLICIES, TERRAINS, POLICY_DT } from "./contract.js";
+import { POLICIES, TERRAINS, JOINT_LABELS, POLICY_DT, CMD_LIMITS } from "./contract.js";
 
 const $ = (id) => document.getElementById(id);
 const MODELS_URL = new URL("../models/", import.meta.url).href;
@@ -11,67 +11,89 @@ let renderer = null;
 let running = false;
 let acc = 0;
 let lastTs = 0;
-let wallT0 = 0;
-let simT0 = 0;
 
 const ui = {
-  loading: $("loading"), loadingText: $("loadingText"), loadingBar: $("loadingBar"),
-  engineStatus: $("engineStatus"), policyStatus: $("policyStatus"),
-  modelLabel: $("modelLabel"), healthLabel: $("policyHealthLabel"), healthChecks: $("policyHealthChecks"),
-  cmdVx: $("cmdVx"), cmdVy: $("cmdVy"), cmdYaw: $("cmdYaw"),
-  baseHeight: $("baseHeight"), velVx: $("velVx"), velVy: $("velVy"), velYaw: $("velYaw"), contacts: $("contacts"),
-  rollBar: $("rollBar"), rollVal: $("rollVal"), pitchBar: $("pitchBar"), pitchVal: $("pitchVal"),
-  simClock: $("simClock"), perfStats: $("perfStats"),
-  playButton: $("playButton"), resetButton: $("resetButton"),
-  policySelect: $("policySelect"), terrainSelect: $("terrainSelect"),
-  panel: document.querySelector(".panel-left"),
+  boot: $("bootScreen"), bootStage: $("bootStage"), bootBar: $("bootProgress"), bootPct: $("bootPercent"),
+  state: $("engineState"), policy: $("policySelect"), terrain: $("terrainSelect"),
+  start: $("start"), reset: $("reset"), fallen: $("fallenBadge"),
+  cmdPanel: $("cmdPanel"), monitorPanel: $("monitorPanel"), terrainPanel: $("terrainPanel"),
+  commandOut: $("command"), clock: $("clock"),
+  bodyPos: $("bodyPosition"), contactOut: $("contactCount"), inferOut: $("inferOut"),
+  actionChart: $("actionChart"), actionValues: $("actionValues"), obsChart: $("obsChart"),
+  leftValue: $("leftJoystickValue"), rightValue: $("rightJoystickValue"),
+  liveVx: $("commandVxValue"), liveVy: $("commandVyValue"), liveWz: $("commandYawValue"),
 };
 
-const cmdMax = { vx: 0.9, vy: 0.5, wz: 1.0 };
-const velCmd = { vx: $("velCmdVx"), vy: $("velCmdVy"), wz: $("velCmdYaw") };
-const velCmdVal = { vx: $("velCmdVxVal"), vy: $("velCmdVyVal"), wz: $("velCmdYawVal") };
-const velCmdMaxSlider = { vx: $("velCmdVxMax"), vy: $("velCmdVyMax"), wz: $("velCmdYawMax") };
-const velCmdMaxVal = { vx: $("velCmdVxMaxVal"), vy: $("velCmdVyMaxVal"), wz: $("velCmdYawMaxVal") };
-let cmdEnabled = true;
+// 指令状态：摇杆优先，其次键盘
+const assign = { vx: 0.6, vy: 0.3, wz: 0.6 };
+const joy = { vx: 0, vy: 0, wz: 0, active: false };
+const keys = new Set();
 
-function setDot(el, text, cls) {
-  el.innerHTML = `<i></i>${text}`;
-  el.className = `dot-label ${cls || ""}`.trim();
+function setState(text, cls) {
+  ui.state.textContent = text;
+  ui.state.className = `pill ${cls || ""}`.trim();
+}
+
+function currentCommand() {
+  if (joy.active) return { vx: joy.vx, vy: joy.vy, wz: joy.wz };
+  let vx = 0, vy = 0, wz = 0;
+  if (keys.has("w") || keys.has("arrowup")) vx += assign.vx;
+  if (keys.has("s") || keys.has("arrowdown")) vx -= assign.vx;
+  if (keys.has("a") || keys.has("arrowleft")) vy += assign.vy;
+  if (keys.has("d") || keys.has("arrowright")) vy -= assign.vy;
+  if (keys.has("q")) wz += assign.wz;
+  if (keys.has("e")) wz -= assign.wz;
+  return { vx, vy, wz };
+}
+
+function syncCommandUI() {
+  const c = sim.command;
+  ui.commandOut.textContent = `vx ${c.vx.toFixed(2)} · vy ${c.vy.toFixed(2)} · ω ${c.wz.toFixed(2)}`;
+  ui.liveVx.textContent = `${c.vx.toFixed(2)} m/s`;
+  ui.liveVy.textContent = `${c.vy.toFixed(2)} m/s`;
+  ui.liveWz.textContent = `${c.wz.toFixed(2)} rad/s`;
+  ui.leftValue.textContent = `vx ${c.vx.toFixed(2)} · vy ${c.vy.toFixed(2)}`;
+  ui.rightValue.textContent = `ω ${c.wz.toFixed(2)}`;
 }
 
 async function boot() {
   try {
     await sim.boot((stage, p) => {
-      ui.loadingText.textContent = stage;
-      ui.loadingBar.style.width = `${Math.round(p * 100)}%`;
+      ui.bootStage.textContent = stage;
+      ui.bootBar.style.width = `${Math.round(p * 100)}%`;
+      ui.bootPct.textContent = `${Math.round(p * 100)}%`;
     });
     renderer = new SimRenderer($("simCanvas"), sim);
     window.__wheelrenderer = renderer;
     await renderer.load();
     renderer.resize(innerWidth, innerHeight);
-    ui.loading.hidden = true;
-    setDot(ui.engineStatus, "就绪", "ok");
-    setDot(ui.policyStatus, "Rough · model_6800", "ok");
-    ui.modelLabel.textContent = "model_6800.onnx";
-    // 客观健康检查（含渲染对齐回归）
-    const align = renderer.verifyAlignment();
-    const diff = Math.max(...(align.pairs[0]?.diff || [9]));
-    ui.healthChecks.innerHTML = [
-      `观测契约 53D（zexw_53）<b>✓</b>`,
-      `动作 16D · 缩放 0.125/0.25/5.0<b>✓</b>`,
-      `双策略 model_6800 / model_84<b>✓</b>`,
-      `网格-碰撞盒对齐 ±${(diff * 1000).toFixed(1)} mm<b>✓</b>`,
-    ].map((s) => `<div class="health-check">${s}</div>`).join("");
-    ui.healthLabel.textContent = diff < 0.05 ? "通过" : "异常";
-    ui.playButton.disabled = false;
-    ui.resetButton.disabled = false;
-    ui.policySelect.disabled = false;
-    ui.terrainSelect.disabled = false;
-    wallT0 = performance.now();
-    simT0 = sim.data.time;
+    renderer.fitView();
+    ui.boot.hidden = true;
+    for (const p of POLICIES) {
+      const o = document.createElement("option");
+      o.value = p.id;
+      o.textContent = p.label;
+      ui.policy.appendChild(o);
+    }
+    {
+      const o = document.createElement("option");
+      o.value = "off";
+      o.textContent = "无策略（姿态保持）";
+      ui.policy.appendChild(o);
+    }
+    for (const t of TERRAINS) {
+      const o = document.createElement("option");
+      o.value = t.id;
+      o.textContent = t.label;
+      ui.terrain.appendChild(o);
+    }
+    for (const id of ["start", "reset", "cmdToggle", "monitorToggle", "terrainToggle", "policySelect", "terrainSelect"]) {
+      $(id).disabled = false;
+    }
+    setRunning(true); // 自动运行（与 LainLab playground 一致）
     requestAnimationFrame(frame);
   } catch (err) {
-    ui.loadingText.textContent = `启动失败: ${err.message}`;
+    ui.bootStage.textContent = `启动失败: ${err.message}`;
     console.error(err);
   }
 }
@@ -80,6 +102,9 @@ async function frame(now) {
   const dt = lastTs ? Math.min(0.1, (now - lastTs) / 1000) : 0;
   lastTs = now;
   if (running) {
+    const c = currentCommand();
+    sim.setCommand(c.vx, c.vy, c.wz);
+    syncCommandUI();
     acc += dt;
     let n = 0;
     while (acc >= POLICY_DT && n < 6) {
@@ -96,169 +121,176 @@ async function frame(now) {
   requestAnimationFrame(frame);
 }
 
+const OBS_SEGMENTS = [
+  { w: 3, color: "#5ec1ff" }, { w: 3, color: "#7dffb0" }, { w: 3, color: "#ffd75e" },
+  { w: 12, color: "#b48cff" }, { w: 12, color: "#ff8c5e" }, { w: 4, color: "#5effd8" },
+  { w: 16, color: "#ff5e8c" },
+];
+
+function drawBars(canvas, values, segments) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  let i = 0;
+  for (const seg of segments) {
+    for (let k = 0; k < seg.w && i < values.length; k += 1, i += 1) {
+      const v = values[i];
+      const x = (i / values.length) * w;
+      const bw = w / values.length - 1;
+      const mag = Math.min(1, Math.abs(v) / 2);
+      const bh = Math.max(1, mag * (h / 2 - 2));
+      ctx.fillStyle = seg.color;
+      if (v >= 0) ctx.fillRect(x, h / 2 - bh, bw, bh);
+      else ctx.fillRect(x, h / 2, bw, bh);
+    }
+  }
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+}
+
 function updateHud() {
   const t = sim.telemetry;
-  const imu = sim.readImuSample ? sim.readImuSample() : { linear: [0, 0, 0] };
-  ui.cmdVx.textContent = sim.command.vx.toFixed(2);
-  ui.cmdVy.textContent = sim.command.vy.toFixed(2);
-  ui.cmdYaw.textContent = sim.command.wz.toFixed(2);
-  ui.baseHeight.textContent = t.z.toFixed(3);
-  ui.velVx.textContent = imu.linear[0].toFixed(2);
-  ui.velVy.textContent = imu.linear[1].toFixed(2);
-  ui.velYaw.textContent = (t.yawRate || 0).toFixed(2);
-  ui.contacts.textContent = String(t.contacts || 0);
-  const g = sim.sim.obs;
-  // 投影重力约定：竖直时 gz ≈ -1（重力向量朝下），取负后横滚/俯仰为 0
-  const roll = (Math.atan2(g[4], -g[5]) * 180) / Math.PI;
-  const pitch = (Math.atan2(g[3], -g[5]) * 180) / Math.PI;
-  const setBar = (bar, val, max) => {
-    const pct = Math.max(-1, Math.min(1, val / max));
-    bar.style.left = `${50 + pct * 50}%`;
-  };
-  setBar(ui.rollBar, roll, 30);
-  setBar(ui.pitchBar, pitch, 30);
-  ui.rollVal.textContent = `${roll.toFixed(1)}°`;
-  ui.pitchVal.textContent = `${pitch.toFixed(1)}°`;
-  ui.simClock.textContent = `时间 ${sim.data.time.toFixed(2)}`;
-  const wall = (performance.now() - wallT0) / 1000;
-  const simT = sim.data.time - simT0;
-  const rt = wall > 1 ? (simT / wall).toFixed(2) : "0.00";
-  ui.perfStats.textContent = `${t.fps || 0} 帧/秒 · ${rt}x`;
+  ui.bodyPos.textContent = `x ${t.x.toFixed(2)} · y ${t.y.toFixed(2)} · z ${t.z.toFixed(3)}`;
+  ui.contactOut.textContent = String(t.contacts || 0);
+  ui.inferOut.textContent = `${t.inferMs.toFixed(1)} ms`;
+  ui.clock.textContent = `${(t.steps * POLICY_DT).toFixed(1)} s`;
+  ui.fallen.hidden = !t.fallen;
+  if (!ui.monitorPanel.hidden) {
+    drawBars(ui.actionChart, Array.from(sim.sim.action), [{ w: 16, color: "#5ec1ff" }]);
+    drawBars(ui.obsChart, Array.from(sim.sim.obs), OBS_SEGMENTS);
+    ui.actionValues.innerHTML = JOINT_LABELS.map((l, i) =>
+      `<div class="av-row"><span>${l}</span><i style="width:${Math.min(100, Math.abs(sim.sim.action[i]) * 20)}%;background:${sim.sim.action[i] >= 0 ? "#5ec1ff" : "#ff5e8c"}"></i><b>${sim.sim.action[i].toFixed(2)}</b></div>`).join("");
+  }
 }
 
-// ---- 策略与地形 ----
-ui.policySelect.addEventListener("change", () => {
-  const id = ui.policySelect.value;
-  sim.switchPolicy(id);
-  const p = POLICIES.find((x) => x.id === id);
-  if (id === "off") {
-    setDot(ui.policyStatus, "姿态保持", "");
-    ui.modelLabel.textContent = "无策略（PD 保持）";
-  } else {
-    setDot(ui.policyStatus, `${p ? p.label.split(" · ")[0] : id}${sim._blend ? "（1s 混合）" : ""}`, "ok");
-    ui.modelLabel.textContent = p ? p.file : id;
-  }
-});
-ui.terrainSelect.addEventListener("change", () => {
-  const t = TERRAINS.find((x) => x.id === ui.terrainSelect.value);
-  sim.loadScene(t.file);
-  renderer.build();
-  renderer.clearTrail();
-});
-
-// ---- 播放控制 ----
+// ---- 播放 / 策略 / 地形 ----
 function setRunning(v) {
   running = v;
-  ui.playButton.textContent = v ? "暂停" : "继续";
-  setDot(ui.engineStatus, v ? "运行中" : "已暂停", v ? "ok" : "");
+  ui.start.textContent = v ? "暂停" : "开始";
+  setState(v ? "运行中" : "已暂停", v ? "run" : "");
 }
-ui.playButton.addEventListener("click", () => setRunning(!running));
-ui.resetButton.addEventListener("click", () => { sim.reset(); renderer.clearTrail(); });
+ui.start.addEventListener("click", () => setRunning(!running));
+ui.reset.addEventListener("click", () => { sim.reset(); renderer && renderer.clearTrail(); });
 
-// ---- 速度指令 ----
-function bindVelCmd(key) {
-  const main = velCmd[key], maxS = velCmdMaxSlider[key];
-  const syncMax = () => {
-    cmdMax[key] = Number(maxS.value);
-    velCmdMaxVal[key].textContent = cmdMax[key].toFixed(2);
-    main.min = (-cmdMax[key]).toFixed(2);
-    main.max = cmdMax[key].toFixed(2);
-    main.step = (cmdMax[key] / 18).toFixed(3);
-    if (Number(main.value) > cmdMax[key]) main.value = cmdMax[key];
-    applyCmd();
-  };
-  main.addEventListener("input", applyCmd);
-  maxS.addEventListener("input", syncMax);
-  syncMax();
-}
-function applyCmd() {
-  if (!cmdEnabled) { sim.setCommand(0, 0, 0); return; }
-  sim.setCommand(Number(velCmd.vx.value), Number(velCmd.vy.value), Number(velCmd.wz.value));
-  velCmdVal.vx.textContent = Number(velCmd.vx.value).toFixed(2);
-  velCmdVal.vy.textContent = Number(velCmd.vy.value).toFixed(2);
-  velCmdVal.wz.textContent = Number(velCmd.wz.value).toFixed(2);
-}
-for (const k of ["vx", "vy", "wz"]) bindVelCmd(k);
-$("velCmdZero").addEventListener("click", () => {
-  velCmd.vx.value = 0; velCmd.vy.value = 0; velCmd.wz.value = 0;
-  applyCmd();
+ui.policy.addEventListener("change", () => {
+  const id = ui.policy.value;
+  sim.switchPolicy(id);
+  const p = POLICIES.find((x) => x.id === id);
+  ui.policy.title = p && p.note ? p.note : "";
+  if (id === "off") setState("姿态保持", "");
+  else setState(`${p ? p.label.split(" · ")[0] : id}${sim._blend ? "（1s 混合）" : ""}`, "run");
 });
-$("velCmdEnable").addEventListener("change", (e) => { cmdEnabled = e.target.checked; applyCmd(); });
+ui.terrain.addEventListener("change", () => {
+  const t = TERRAINS.find((x) => x.id === ui.terrain.value);
+  sim.loadScene(t.file);
+  if (renderer) { renderer.build(); renderer.clearTrail(); }
+  for (const b of document.querySelectorAll("[data-terrain-preset]")) {
+    b.classList.toggle("active", b.dataset.terrainPreset === t.id);
+  }
+  $("terrainHint").textContent = `当前：${t.label}。${t.id === "wall" ? "高墙地形请搭配「高墙 · model_84」策略。" : ""}`;
+});
 
-// ---- 键盘指令 ----
-const keys = new Set();
-const keyEls = { w: $("keyW"), s: $("keyS"), a: $("keyA"), d: $("keyD"), q: $("keyQ"), e: $("keyE") };
+// ---- 键盘 ----
 addEventListener("keydown", (e) => {
   if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
   const k = e.key.toLowerCase();
   if (k === " ") { e.preventDefault(); setRunning(!running); return; }
   if (k === "r") { sim.reset(); renderer && renderer.clearTrail(); return; }
-  if ("wsadqe".includes(k) && k.length === 1) {
-    keys.add(k);
-    if (keyEls[k]) keyEls[k].classList.add("is-active");
-    applyKeys();
-  }
+  keys.add(k);
 });
-addEventListener("keyup", (e) => {
-  const k = e.key.toLowerCase();
-  keys.delete(k);
-  if (keyEls[k]) keyEls[k].classList.remove("is-active");
-  applyKeys();
-});
-function applyKeys() {
-  let vx = 0, vy = 0, wz = 0;
-  if (keys.has("w")) vx += cmdMax.vx;
-  if (keys.has("s")) vx -= cmdMax.vx;
-  if (keys.has("a")) vy += cmdMax.vy;
-  if (keys.has("d")) vy -= cmdMax.vy;
-  if (keys.has("q")) wz += cmdMax.wz;
-  if (keys.has("e")) wz -= cmdMax.wz;
-  velCmd.vx.value = vx; velCmd.vy.value = vy; velCmd.wz.value = wz;
-  applyCmd();
-}
+addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+addEventListener("blur", () => keys.clear());
 
-// ---- 扰动 ----
-$("payloadMass").addEventListener("input", (e) => {
-  const v = Number(e.target.value);
-  sim.setPayload(v);
-  $("payloadMassLabel").textContent = `${v.toFixed(1)} kg`;
+// ---- 虚拟摇杆（触屏 / 鼠标） ----
+function bindJoystick(baseId, knobId, onChange) {
+  const base = $(baseId), knob = $(knobId);
+  let owner = null;
+  const apply = (e) => {
+    const r = base.getBoundingClientRect();
+    const dx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width - 0.5) * 2));
+    const dy = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height - 0.5) * 2));
+    const max = Math.min(r.width, r.height) * 0.3;
+    knob.style.transform = `translate(${dx * max}px, ${dy * max}px)`;
+    onChange(dx, dy);
+  };
+  base.addEventListener("pointerdown", (e) => {
+    base.setPointerCapture(e.pointerId);
+    owner = e.pointerId;
+    joy.active = true;
+    apply(e);
+    e.preventDefault();
+  });
+  base.addEventListener("pointermove", (e) => { if (owner === e.pointerId) apply(e); });
+  const release = (e) => {
+    if (owner !== e.pointerId) return;
+    owner = null;
+    joy.active = false;
+    knob.style.transform = "";
+    onChange(0, 0);
+  };
+  base.addEventListener("pointerup", release);
+  base.addEventListener("pointercancel", release);
+}
+bindJoystick("leftJoystick", "leftKnob", (dx, dy) => {
+  joy.vx = -dy * assign.vx;
+  joy.vy = -dx * assign.vy;
 });
-$("terrainFriction").addEventListener("input", (e) => {
-  const v = Number(e.target.value);
-  sim.setFriction(v);
-  $("terrainFrictionLabel").textContent = v.toFixed(2);
+bindJoystick("rightJoystick", "rightKnob", (dx) => {
+  joy.wz = dx * assign.wz;
 });
-for (const row of document.querySelectorAll("[data-com-axis]")) {
-  row.addEventListener("input", () => {
-    const x = Number(document.querySelector('[data-com-axis="0"]').value);
-    const y = Number(document.querySelector('[data-com-axis="1"]').value);
-    sim.setComOffset(x, y);
-    document.querySelector('[data-com-value="0"]').textContent = `${(x * 1000).toFixed(0)} mm`;
-    document.querySelector('[data-com-value="1"]').textContent = `${(y * 1000).toFixed(0)} mm`;
-    $("comOffsetSummary").textContent = `${Math.hypot(x, y * 1) * 1000 < 1 ? 0 : Math.hypot(x, y) * 1000} mm`.replace("NaN", "0");
-    $("comOffsetSummary").textContent = `${(Math.hypot(x, y) * 1000).toFixed(0)} mm`;
+
+// ---- 指令赋值面板 ----
+for (const [id, key, out] of [["commandSpeedVx", "vx", "commandSpeedVxValue"], ["commandSpeedVy", "vy", "commandSpeedVyValue"], ["commandSpeedYaw", "wz", "commandSpeedYawValue"]]) {
+  const el = $(id);
+  el.addEventListener("input", () => {
+    assign[key] = Number(el.value);
+    $(out).textContent = `${assign[key].toFixed(2)} ${key === "wz" ? "rad/s" : "m/s"}`;
   });
 }
-for (const cb of document.querySelectorAll("[data-imu-vector]")) {
-  cb.addEventListener("change", () => {
-    const v = cb.dataset.imuVector, a = Number(cb.dataset.imuAxis);
-    sim.setImuSigns(v, a, cb.checked ? -1 : 1);
-    const any = document.querySelectorAll("[data-imu-vector]:checked").length;
-    $("imuAxisSummary").textContent = any ? "已反向" : "原始";
+$("commandStop").addEventListener("click", () => {
+  keys.clear();
+  joy.vx = 0; joy.vy = 0; joy.wz = 0; joy.active = false;
+  sim.setCommand(0, 0, 0);
+  syncCommandUI();
+});
+
+// ---- 面板开关 ----
+$("cmdToggle").addEventListener("click", () => { ui.cmdPanel.hidden = !ui.cmdPanel.hidden; });
+$("monitorToggle").addEventListener("click", () => { ui.monitorPanel.hidden = !ui.monitorPanel.hidden; });
+$("terrainToggle").addEventListener("click", () => { ui.terrainPanel.hidden = !ui.terrainPanel.hidden; });
+$("cmdClose").addEventListener("click", () => { ui.cmdPanel.hidden = true; });
+$("monitorClose").addEventListener("click", () => { ui.monitorPanel.hidden = true; });
+$("terrainClose").addEventListener("click", () => { ui.terrainPanel.hidden = true; });
+for (const b of document.querySelectorAll("[data-terrain-preset]")) {
+  b.addEventListener("click", () => {
+    ui.terrain.value = b.dataset.terrainPreset;
+    ui.terrain.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 
-// ---- 底部 HUD ----
-$("followToggle").addEventListener("change", (e) => { renderer.follow = e.target.checked; });
-$("collisionToggle").addEventListener("change", (e) => { renderer.setCollisionVisible(e.target.checked); });
-$("wireToggle").addEventListener("change", (e) => { renderer.setWireframe(e.target.checked); });
-$("trailToggle").addEventListener("change", (e) => { renderer.trail.visible = e.target.checked; if (!e.target.checked) renderer.clearTrail(); });
-$("shadowToggle").addEventListener("change", (e) => { renderer.setShadows(e.target.checked); });
-$("fitViewButton").addEventListener("click", () => renderer.fitView());
-$("mobileControlsToggle").addEventListener("click", (e) => {
-  ui.panel.classList.toggle("is-collapsed");
-  e.currentTarget.setAttribute("aria-expanded", String(!ui.panel.classList.contains("is-collapsed")));
-});
+// ---- 面板拖拽（Lain 同款：按住标题拖动） ----
+for (const panel of [ui.cmdPanel, ui.monitorPanel, ui.terrainPanel]) {
+  const head = panel.querySelector(".panel-heading");
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  head.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button")) return;
+    dragging = true;
+    head.setPointerCapture(e.pointerId);
+    sx = e.clientX; sy = e.clientY;
+    const r = panel.getBoundingClientRect();
+    ox = r.left; oy = r.top;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+    panel.style.left = `${ox}px`;
+    panel.style.top = `${oy}px`;
+  });
+  head.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    panel.style.left = `${ox + e.clientX - sx}px`;
+    panel.style.top = `${oy + e.clientY - sy}px`;
+  });
+  head.addEventListener("pointerup", () => { dragging = false; });
+}
 
 addEventListener("resize", () => { if (renderer) renderer.resize(innerWidth, innerHeight); });
 

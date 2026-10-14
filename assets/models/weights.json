@@ -1,0 +1,21 @@
+{
+ "dims": [
+  53,
+  512,
+  256,
+  128,
+  16
+ ],
+ "policies": {
+  "model_6800": {
+   "file": "weights/model_6800.bin",
+   "bytes": 775744,
+   "params": 193936
+  },
+  "model_84": {
+   "file": "weights/model_84.bin",
+   "bytes": 775744,
+   "params": 193936
+  }
+ }
+}

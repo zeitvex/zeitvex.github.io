@@ -31,8 +31,7 @@
           从 MJCF 建模、mjlab 强化学习训练、MuJoCo Sim2Sim 到 ROS 2 / C++ 真机部署的完整工程。
           比赛最终策略 <code>model_6800.onnx</code> 与高墙策略 <code>model_84.onnx</code>
           现已通过 WebAssembly 在浏览器里实时运行——物理、观测、推理全部本地完成，无需服务器。
-        </p>
-        <div class="cta-row">
+        </p>        <div class="cta-row">
           <a class="btn primary" href="./playground.html">▶ 在线仿真演示</a>
           <a class="btn" href="https://git.zeitvex.com/Robocon/RC_WheelLeg" target="_blank" rel="noopener">工程仓库</a>
         </div>
@@ -58,7 +57,7 @@
         <iframe src="./playground.html" title="RC_WheelLeg 在线仿真" loading="lazy" allowfullscreen></iframe>
       </div>
       <p class="fineprint">
-        首次加载约 25 MB（MuJoCo WASM + ONNX Runtime Web，之后走浏览器缓存）。建议桌面端 Chrome / Edge / Firefox 最新版。
+        首次加载约 13 MB（MuJoCo WASM + 策略权重，之后走浏览器缓存）。建议桌面端 Chrome / Edge / Firefox 最新版，手机端可横屏使用。
         若嵌入窗口操作不便，请 <a href="./playground.html">全屏打开</a>。
       </p>
     </section>
@@ -182,7 +181,7 @@
       <div class="grid2">
         <div class="card">
           <h3>纯静态 · 零后端</h3>
-          <p>GitHub Pages 托管。仿真 = MuJoCo WebAssembly（物理）+ ONNX Runtime Web（策略推理）+ Three.js（渲染），全部在浏览器内完成，没有任何服务端计算。</p>
+          <p>GitHub Pages 托管。仿真 = MuJoCo WebAssembly（物理）+ 纯 JS MLP 推理（比赛策略，与 ONNX 逐位对拍）+ Three.js（渲染），全部在浏览器内完成，没有任何服务端计算，首次加载约 13 MB。</p>
         </div>
         <div class="card">
           <h3>网格抽稀</h3>

@@ -7,10 +7,11 @@
 浏览器内直接运行：
 
 - **物理**：MuJoCo WebAssembly（`assets/vendor/mujoco/`），加载由比赛 MJCF 生成的 `assets/models/scene_*.xml`
-- **策略**：ONNX Runtime Web，比赛双策略 `model_6800.onnx`（Rough 主策略）与 `model_84.onnx`（高墙策略）
+- **策略**：纯 JS 手写推理（`assets/js/policy.js`，53→512→256→128→16 Gemm+ELU），权重由 `tools/export_weights.py` 从比赛 ONNX 导出，与 ONNX 输出逐位对拍（maxDiff < 3e-6，见 parity 验证），0.24ms/步
 - **渲染**：Three.js，按 MuJoCo 编译位姿逐帧驱动抽稀网格
 - **观测/动作契约**：`assets/js/contract.js`，数值与真机部署契约 `sim2real_ros2_v3` 的 `deployment_contract.hpp` 逐项一致（53 维观测、16 维动作、Kp=50/Kd=1.5、默认站姿 hip 0.55 / knee −1.125、策略 50 Hz、物理 200 Hz）
 - 观测构建复用 `assets/js/obs/observation_builders.js`（来自 legged_studio 的 zexw_53 契约驱动实现，与 `rc_mjlab/sim2sim.py` 同源）
+- HUD 界面移植自 legged_studio 基础仿真（顶栏工具栏、控制面板、速度指令、负载/摩擦/重心/IMU 扰动、姿态仪表、指标网格、底部开关）
 
 ### 本地预览
 
