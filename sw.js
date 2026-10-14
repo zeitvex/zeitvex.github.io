@@ -22,6 +22,7 @@ const SHELL = [
   "./assets/vendor/three/three.module.js",
   "./assets/vendor/three/OrbitControls.js",
   "./assets/models/wheelleg_web.xml",
+  "./assets/models/wheelleg_web_hi.xml",
   "./assets/models/scene_flat.xml",
   "./assets/models/scene_stairs.xml",
   "./assets/models/scene_rough.xml",

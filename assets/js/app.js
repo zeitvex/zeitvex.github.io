@@ -91,10 +91,26 @@ async function boot() {
       $(id).disabled = false;
     }
     setRunning(true); // 自动运行（与 LainLab playground 一致）
+    // 后台视觉升级：lod0 立即可见，lod1 流式替换（零行为影响，不动运行状态）
+    const visual = $("visualState");
+    sim.upgradeVisuals((status) => {
+      if (!visual) return;
+      if (status === "done" && renderer) {
+        const n = renderer.upgradeGeometry(sim._hiModel);
+        visual.hidden = false;
+        visual.textContent = `视觉细节已增强（${n} 件）`;
+        visual.className = "pill ok";
+      } else if (status === "failed") {
+        visual.hidden = false;
+        visual.textContent = "视觉增强失败（保持低模）";
+        visual.className = "pill";
+      }
+    });
     requestAnimationFrame(frame);
   } catch (err) {
     ui.bootStage.textContent = `启动失败: ${err.message}`;
     console.error(err);
+    window.__wheelsim = sim; // 失败态也暴露，便于诊断
   }
 }
 

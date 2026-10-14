@@ -60,20 +60,33 @@ export class WheelLegSim {
     const FS = this.mujoco.FS;
     if (!FS) throw new Error("MuJoCo WASM 未暴露文件系统");
     onProgress("写入模型与网格", 0.5);
-    for (const d of ["/model", "/model/meshes"]) {
+    for (const d of ["/model", "/model/meshes-lod0"]) {
       try { FS.mkdir(d); } catch { /* 已存在 */ }
     }
     // 资产全并行下载（XML + STL + 默认策略权重），再统一写入 FS
-    const xmls = ["wheelleg_web.xml", "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml"];
+    const xmls = ["wheelleg_web.xml", "wheelleg_web_hi.xml", "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml"];
     const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
     const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
+    const fetchLog = [];
     const [xmlTexts, meshBufs, roughW] = await Promise.all([
       Promise.all(xmls.map((f) => fetch(`${this.baseUrl}${f}`).then((r) => r.text()))),
-      Promise.all(meshNames.map((n) => fetch(`${this.baseUrl}meshes/${n}.STL`).then((r) => r.arrayBuffer()))),
+      Promise.all(meshNames.map((n) => fetch(`${this.baseUrl}meshes-lod0/${n}.STL`).then((r) => {
+        if (!r.ok) fetchLog.push({ n, status: r.status });
+        return r.arrayBuffer();
+      }))),
       fetch(`${this.baseUrl}weights/model_6800.bin`).then((r) => r.arrayBuffer()),
     ]);
+    if (fetchLog.length) throw new Error(`网格下载失败: ${JSON.stringify(fetchLog.slice(0, 3))}`);
     xmls.forEach((f, i) => FS.writeFile(`/model/${f}`, xmlTexts[i]));
-    meshNames.forEach((n, i) => FS.writeFile(`/model/meshes/${n}.STL`, new Uint8Array(meshBufs[i])));
+    meshNames.forEach((n, i) => FS.writeFile(`/model/meshes-lod0/${n}.STL`, new Uint8Array(meshBufs[i])));
+    // 自检：写后读回，定位“fetch 坏”还是“writeFile 丢数据”
+    const fsLens = meshNames.map((n) => { try { return FS.stat(`/model/meshes-lod0/${n}.STL`).size; } catch { return -1; } });
+    const bufLens = meshBufs.map((b) => b.byteLength);
+    this._bootDebug = { meshNames, bufLens, fsLens };
+    const badIdx = meshNames.findIndex((n, i) => fsLens[i] !== bufLens[i]);
+    if (badIdx >= 0) {
+      throw new Error(`STL 写入损坏: ${meshNames[badIdx]} buf=${bufLens[badIdx]} fs=${fsLens[badIdx]}`);
+    }
     onProgress("编译 MuJoCo 模型", 0.7);
     this.loadScene("scene_flat.xml");
     onProgress("就绪", 0.85);
@@ -82,6 +95,34 @@ export class WheelLegSim {
     onProgress("就绪", 1);
     this.phase = "ready";
     return this;
+  }
+
+  /** 后台视觉升级：流式加载 lod1 网格并编译，renderer 随后无感替换几何体。
+   *  STL 网格纯视觉（contype=0），物理与策略不依赖 mesh 顶点，升级零行为影响。 */
+  async upgradeVisuals(onStatus = () => {}) {
+    if (this._upgraded || this._upgrading) return this._hiModel || null;
+    this._upgrading = true;
+    try {
+      const FS = this.mujoco.FS;
+      try { FS.mkdir("/model/meshes-lod1"); } catch { /* exists */ }
+      const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
+      const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
+      await Promise.all(meshNames.map(async (n) => {
+        const r = await fetch(`${this.baseUrl}meshes-lod1/${n}.STL`);
+        FS.writeFile(`/model/meshes-lod1/${n}.STL`, new Uint8Array(await r.arrayBuffer()));
+      }));
+      const hi = this.mujoco.MjModel.mj_loadXML("/model/wheelleg_web_hi.xml");
+      this._hiModel = hi;
+      this._upgraded = true;
+      onStatus("done");
+      return hi;
+    } catch (err) {
+      console.warn("visual upgrade failed:", err);
+      onStatus("failed");
+      return null;
+    } finally {
+      this._upgrading = false;
+    }
   }
 
   /** 按需加载策略权重（wall 首次切换时拉取，约 0.7 MB） */

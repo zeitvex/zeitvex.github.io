@@ -99,8 +99,8 @@ export class SimRenderer {
 
   async load() { this.build(); }
 
-  meshGeometry(meshId) {
-    const m = this.sim.model;
+  meshGeometry(model, meshId) {
+    const m = model;
     const vadr = m.mesh_vertadr[meshId], vnum = m.mesh_vertnum[meshId];
     const fadr = m.mesh_faceadr[meshId], fnum = m.mesh_facenum[meshId];
     if (!(vnum > 0 && fnum > 0)) return null;
@@ -130,6 +130,24 @@ export class SimRenderer {
     geo.toNonIndexed();
     geo.computeVertexNormals();
     return geo;
+  }
+
+  /** 视觉升级：用 lod1 编译模型的 mesh 数据无感替换渲染几何体（物理 model 不动）。 */
+  upgradeGeometry(hiModel) {
+    if (!hiModel) return 0;
+    let n = 0;
+    for (const obj of this.geomObjects) {
+      const g = obj.userData.geomId;
+      if (this.sim.model.geom_type[g] !== 7) continue;
+      const meshId = this.sim.model.geom_dataid[g];
+      const geo = this.meshGeometry(hiModel, meshId);
+      if (geo) {
+        obj.geometry.dispose();
+        obj.geometry = geo;
+        n += 1;
+      }
+    }
+    return n;
   }
 
   build() {
@@ -186,7 +204,7 @@ export class SimRenderer {
       }
       const isRobotCollider = type !== MJ_GEOM_MESH && model.geom_bodyid[i] !== 0;
       if (type === MJ_GEOM_MESH) {
-        const geo = this.meshGeometry(model.geom_dataid[i]);
+        const geo = this.meshGeometry(model, model.geom_dataid[i]);
         if (!geo) continue;
         obj = new THREE.Mesh(geo, this.robotMat);
         obj.castShadow = true;

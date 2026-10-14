@@ -1,10 +1,15 @@
 """Build web assets for zeitvex.github.io from RC_WheelLeg.
 
 Pipeline:
-1. Decimate MuJoCo STL meshes (QEM edge collapse, tools/qem.py) -> MuJoCo STL.
-2. Generate browser MJCF: wheelleg_web.xml (actuators per ROS2 v3 deployment
-   contract: legs position Kp=50 Kv=1.5, wheels velocity Kv=1.0; collisions per
-   mjlab robot_cfg) + scene variants (flat/stairs/rough/wall).
+1. Decimate MuJoCo STL meshes with QEM edge collapse (tools/qem.py) at two
+   LOD levels: lod0 (10%, wheels 15%) for instant boot, lod1 (35%, wheels
+   40%) streamed in the background for full visual quality. STL meshes are
+   purely visual (contype=0; contacts come from primitive colliders), so
+   LOD never affects physics or policy behavior.
+2. Generate browser MJCF: wheelleg_web.xml (lod0 meshdir) for boot,
+   wheelleg_web_hi.xml (lod1 meshdir) for the visual upgrade; actuators per
+   ROS2 v3 deployment contract, collisions per mjlab robot_cfg; plus scene
+   variants (flat/stairs/rough/wall).
 3. Copy competition ONNX policies.
 
 Ground truth sources (read-only):
@@ -24,7 +29,6 @@ from qem import qem_decimate, read_stl, weld_vertices, write_stl
 SRC_MJCF = Path(r"C:\Users\31560\Documents\00_open\rc_old\RC_WheelLeg\05_software\train\rc_mjlab\mjcf")
 SRC_POLICIES = Path(r"C:\Users\31560\Documents\00_open\rc_old\RC_WheelLeg\05_software\train\rc_mjlab")
 DST = Path(r"C:\Users\31560\Documents\00_open\zeitvex.github.io\assets\models")
-DST_MESH = DST / "meshes"
 
 # ROS2 v3 deployment contract (deployment_contract.hpp)
 LEG_KP, LEG_KV, EFFORT = 50.0, 1.5, 17.0
@@ -32,31 +36,40 @@ WHEEL_KV = 1.0
 LEG_JOINTS = [f"{p}_{t}_joint" for p in ("fl", "fr", "rl", "rr") for t in ("hip_abduction", "hip_pitch", "knee")]
 WHEEL_JOINTS = [f"{p}_wheel_joint" for p in ("fl", "fr", "rl", "rr")]
 
-# QEM ratios: wheels are the visual focus, keep more faces there.
-QEM_RATIO_DEFAULT = 0.35
-QEM_RATIO_WHEEL = 0.40
+# QEM LOD ratios (wheels are the visual focus, keep more faces there)
+LODS = {
+    "lod0": {"meshdir": "meshes-lod0", "default": 0.10, "wheel": 0.15},
+    "lod1": {"meshdir": "meshes-lod1", "default": 0.35, "wheel": 0.40},
+}
 
 
 def build_meshes():
-    DST_MESH.mkdir(parents=True, exist_ok=True)
     names = []
     for stl in sorted(SRC_MJCF.glob("meshes/*.STL")):
         V, F = read_stl(stl)
         V, F = weld_vertices(V, F)
-        ratio = QEM_RATIO_WHEEL if "wheel" in stl.stem else QEM_RATIO_DEFAULT
-        target = max(400, int(F.shape[0] * ratio))
-        Vd, Fd = qem_decimate(V, F, target)
-        write_stl(DST_MESH / stl.name, Vd, Fd)
-        names.append(stl.stem)
-        print(f"  {stl.name:28s} {F.shape[0]:7d} -> {Fd.shape[0]:6d} tris")
-    # meshes.json only enumerates STL names for boot (render geometry comes
+        for lod, cfg in LODS.items():
+            out_dir = DST / cfg["meshdir"]
+            out_dir.mkdir(parents=True, exist_ok=True)
+            ratio = cfg["wheel"] if "wheel" in stl.stem else cfg["default"]
+            target = max(400, int(F.shape[0] * ratio))
+            Vd, Fd = qem_decimate(V, F, target)
+            write_stl(out_dir / stl.name, Vd, Fd)
+            if lod == "lod0":
+                names.append(stl.stem)
+                print(f"  {stl.name:28s} lod0 {F.shape[0]:7d} -> {Fd.shape[0]:6d} tris")
+            else:
+                print(f"  {stl.name:28s} lod1 {F.shape[0]:7d} -> {Fd.shape[0]:6d} tris")
+    # meshes.json enumerates lod0 STL names for boot (render geometry comes
     # from MuJoCo compiled mesh data; no verts.bin/idx.bin needed).
     (DST / "meshes.json").write_text(json.dumps({"meshes": names}), encoding="utf-8")
 
 
-def patch_robot_xml():
+def patch_robot_xml(lod: str):
+    cfg = LODS[lod]
     tree = etree.parse(str(SRC_MJCF / "wheelleg.xml"))
     root = tree.getroot()
+    root.find("compiler").set("meshdir", f'{cfg["meshdir"]}/')
     # name every unnamed primitive collider so collision rules can target it
     for body in root.iter("body"):
         bname = body.get("name")
@@ -89,8 +102,9 @@ def patch_robot_xml():
     for j in WHEEL_JOINTS:
         etree.SubElement(actuator, "velocity", name=j, joint=j,
                          kv=str(WHEEL_KV), forcerange=f"{-EFFORT} {EFFORT}")
-    tree.write(str(DST / "wheelleg_web.xml"), pretty_print=True, xml_declaration=True, encoding="utf-8")
-    print("  wheelleg_web.xml written")
+    out_name = "wheelleg_web.xml" if lod == "lod0" else "wheelleg_web_hi.xml"
+    tree.write(str(DST / out_name), pretty_print=True, xml_declaration=True, encoding="utf-8")
+    print(f"  {out_name} written (meshdir={cfg['meshdir']})")
 
 
 def scene_body(terrain: str, seed: int):
@@ -158,12 +172,14 @@ def copy_policies():
 
 
 if __name__ == "__main__":
-    print("[1/4] meshes")
+    print("[1/5] meshes (LOD0 + LOD1)")
     build_meshes()
-    print("[2/4] robot xml")
-    patch_robot_xml()
-    print("[3/4] scenes")
+    print("[2/5] robot xml (lod0)")
+    patch_robot_xml("lod0")
+    print("[3/5] robot xml (lod1)")
+    patch_robot_xml("lod1")
+    print("[4/5] scenes")
     build_scenes()
-    print("[4/4] policies")
+    print("[5/5] policies")
     copy_policies()
     print("done")
