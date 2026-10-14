@@ -69,7 +69,8 @@ export class WheelLegSim {
       FS.writeFile(`/model/${f}`, await r.text());
     }
     const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
-    for (const name of Object.keys(meshList.meshes)) {
+    const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
+    for (const name of meshNames) {
       const r = await fetch(`${this.baseUrl}meshes/${name}.STL`);
       FS.writeFile(`/model/meshes/${name}.STL`, new Uint8Array(await r.arrayBuffer()));
     }

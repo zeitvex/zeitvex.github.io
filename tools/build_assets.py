@@ -1,7 +1,7 @@
 """Build web assets for zeitvex.github.io from RC_WheelLeg.
 
 Pipeline:
-1. Decimate MuJoCo STL meshes (vertex clustering) -> MuJoCo STL + Three.js binary.
+1. Decimate MuJoCo STL meshes (QEM edge collapse, tools/qem.py) -> MuJoCo STL.
 2. Generate browser MJCF: wheelleg_web.xml (actuators per ROS2 v3 deployment
    contract: legs position Kp=50 Kv=1.5, wheels velocity Kv=1.0; collisions per
    mjlab robot_cfg) + scene variants (flat/stairs/rough/wall).
@@ -13,12 +13,13 @@ Ground truth sources (read-only):
   sim2real_ros2_v3/.../deployment_contract.hpp  kLegKp/kLegKd/kWheelKd/kActionScale/kDefaultDofPos
 """
 import json
-import struct
 import sys
 from pathlib import Path
 
-import numpy as np
 from lxml import etree
+
+sys.path.insert(0, str(Path(__file__).parent))
+from qem import qem_decimate, read_stl, weld_vertices, write_stl
 
 SRC_MJCF = Path(r"C:\Users\31560\Documents\00_open\rc_old\RC_WheelLeg\05_software\train\rc_mjlab\mjcf")
 SRC_POLICIES = Path(r"C:\Users\31560\Documents\00_open\rc_old\RC_WheelLeg\05_software\train\rc_mjlab")
@@ -31,94 +32,26 @@ WHEEL_KV = 1.0
 LEG_JOINTS = [f"{p}_{t}_joint" for p in ("fl", "fr", "rl", "rr") for t in ("hip_abduction", "hip_pitch", "knee")]
 WHEEL_JOINTS = [f"{p}_wheel_joint" for p in ("fl", "fr", "rl", "rr")]
 
-
-def read_stl(path: Path):
-    data = path.read_bytes()
-    if data[:5] == b"solid" and b"facet" in data[:2048]:
-        raise SystemExit(f"ASCII STL not supported: {path}")
-    n = struct.unpack("<I", data[80:84])[0]
-    dt = np.dtype([("n", "<f4", (3,)), ("v", "<f4", (3, 3)), ("a", "<u2")])
-    arr = np.frombuffer(data, dtype=dt, count=n, offset=84)
-    if 84 + n * 50 != len(data):
-        print(f"  [warn] {path.name}: size mismatch, using header count {n}")
-    return arr["v"].copy(), arr["n"].copy()
-
-
-def decimate(V: np.ndarray, target_tris: int):
-    """Vertex-cluster decimation. V: (n,3,3) triangles. Returns (verts (m,3), faces (k,3))."""
-    n = V.shape[0]
-    if n <= target_tris:
-        idx = np.arange(n * 3, dtype=np.int64).reshape(n, 3)
-        return V.reshape(-1, 3), idx
-    flat = V.reshape(-1, 3)
-    mins, maxs = flat.min(0), flat.max(0)
-    extent = np.maximum(maxs - mins, 1e-9)
-    k = max(2, int(round(target_tris ** (1.0 / 3.0))))
-    scale = (k - 1) / extent
-    cell = np.floor((flat - mins) * scale).astype(np.int64)
-    keys = (cell[:, 0] * (k + 1) + cell[:, 1]) * (k + 1) + cell[:, 2]
-    uniq, inv = np.unique(keys, return_inverse=True)
-    sums = np.zeros((len(uniq), 3), dtype=np.float64)
-    counts = np.zeros(len(uniq), dtype=np.float64)
-    np.add.at(sums, inv, flat)
-    np.add.at(counts, inv, 1.0)
-    reps = (sums / counts[:, None]).astype(np.float32)
-    faces = inv.reshape(n, 3)
-    keep = (faces[:, 0] != faces[:, 1]) & (faces[:, 1] != faces[:, 2]) & (faces[:, 0] != faces[:, 2])
-    return reps, faces[keep]
-
-
-def vertex_normals(verts: np.ndarray, faces: np.ndarray):
-    nrm = np.zeros_like(verts)
-    v0, v1, v2 = verts[faces[:, 0]], verts[faces[:, 1]], verts[faces[:, 2]]
-    fn = np.cross(v1 - v0, v2 - v0)
-    for sl in (slice(0, 3),):
-        pass
-    for col in range(3):
-        np.add.at(nrm, faces[:, col], fn)
-    ln = np.linalg.norm(nrm, axis=1)
-    ln[ln < 1e-12] = 1.0
-    return (nrm / ln[:, None]).astype(np.float32)
-
-
-def write_stl(path: Path, verts: np.ndarray, faces: np.ndarray):
-    out = np.zeros((faces.shape[0], 3, 3), dtype="<f4")
-    out[:, 0, :] = verts[faces[:, 0]]
-    out[:, 1, :] = verts[faces[:, 1]]
-    out[:, 2, :] = verts[faces[:, 2]]
-    with open(path, "wb") as f:
-        f.write(b"\0" * 80)
-        f.write(struct.pack("<I", faces.shape[0]))
-        rec = np.zeros(faces.shape[0], dtype=[("n", "<f4", (3,)), ("v", "<f4", (3, 3)), ("a", "<u2")])
-        rec["v"] = out
-        f.write(rec.tobytes())
+# QEM ratios: wheels are the visual focus, keep more faces there.
+QEM_RATIO_DEFAULT = 0.35
+QEM_RATIO_WHEEL = 0.40
 
 
 def build_meshes():
     DST_MESH.mkdir(parents=True, exist_ok=True)
-    manifest = {"vertFloats": 6, "meshes": {}}
-    vert_blocks, idx_blocks = [], []
-    voff = ioff = 0
+    names = []
     for stl in sorted(SRC_MJCF.glob("meshes/*.STL")):
-        V, _ = read_stl(stl)
-        target = max(500, min(6000, int(V.shape[0] * 0.035)))
-        verts, faces = decimate(V, target)
-        nrm = vertex_normals(verts, faces)
-        write_stl(DST_MESH / stl.name, verts, faces)
-        vn = np.hstack([verts, nrm]).astype(np.float32)
-        vert_blocks.append(vn.tobytes())
-        idx_blocks.append(faces.astype(np.uint32).tobytes())
-        manifest["meshes"][stl.stem] = {
-            "vstart": voff, "vcount": int(verts.shape[0]),
-            "istart": ioff, "icount": int(faces.shape[0]),
-        }
-        voff += verts.shape[0]
-        ioff += faces.shape[0]
-        print(f"  {stl.name:28s} {V.shape[0]:7d} -> {faces.shape[0]:6d} tris")
-    (DST / "verts.bin").write_bytes(b"".join(vert_blocks))
-    (DST / "idx.bin").write_bytes(b"".join(idx_blocks))
-    (DST / "meshes.json").write_text(json.dumps(manifest), encoding="utf-8")
-    print(f"  total verts {voff}, tris {ioff}, verts.bin {(DST / 'verts.bin').stat().st_size / 1e6:.2f} MB")
+        V, F = read_stl(stl)
+        V, F = weld_vertices(V, F)
+        ratio = QEM_RATIO_WHEEL if "wheel" in stl.stem else QEM_RATIO_DEFAULT
+        target = max(400, int(F.shape[0] * ratio))
+        Vd, Fd = qem_decimate(V, F, target)
+        write_stl(DST_MESH / stl.name, Vd, Fd)
+        names.append(stl.stem)
+        print(f"  {stl.name:28s} {F.shape[0]:7d} -> {Fd.shape[0]:6d} tris")
+    # meshes.json only enumerates STL names for boot (render geometry comes
+    # from MuJoCo compiled mesh data; no verts.bin/idx.bin needed).
+    (DST / "meshes.json").write_text(json.dumps({"meshes": names}), encoding="utf-8")
 
 
 def patch_robot_xml():
@@ -170,6 +103,7 @@ def scene_body(terrain: str, seed: int):
             parts.append(f'    <geom name="stair{i}" type="box" size="0.125 1.2 {h}" pos="{1.0 + i * 0.25} 0 {h}" friction="0.8 0.05 0.01"/>')
         return "\n".join(parts)
     if terrain == "rough":
+        import numpy as np
         rng = np.random.default_rng(seed)
         parts = []
         for ix in range(10):
@@ -215,14 +149,12 @@ def build_scenes():
 
 
 def copy_policies():
-    for name in ("model_6800.onnx", "model_rough.pt"):
+    for name in ("model_6800.onnx", "model_84.onnx"):
         src = SRC_POLICIES / name
-        if src.exists():
-            (DST / name).write_bytes(src.read_bytes())
-            print(f"  {name} copied")
-    wall = Path(r"C:\Users\31560\Documents\00_open\rc_old\RC_WheelLeg\05_software\real\sim2real_ros2_v3\policies\model_84.onnx")
-    (DST / "model_84.onnx").write_bytes(wall.read_bytes())
-    print("  model_84.onnx copied")
+        if not src.exists():
+            src = Path(r"C:\Users\31560\Documents\00_open\rc_old\RC_WheelLeg\05_software\real\sim2real_ros2_v3\policies") / name
+        (DST / name).write_bytes(src.read_bytes())
+        print(f"  {name} copied")
 
 
 if __name__ == "__main__":

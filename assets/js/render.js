@@ -111,9 +111,23 @@ export class SimRenderer {
       const a = m.mesh_face[fadr + f * 3], b = m.mesh_face[fadr + f * 3 + 1], c = m.mesh_face[fadr + f * 3 + 2];
       if (a !== b && b !== c && a !== c) index.push(a, b, c);
     }
+    // 过滤极端 sliver（边长比 > 40 的细丝面，源自 SolidWorks 碎面/焊接残余）
+    const P = pos;
+    const kept = [];
+    for (let i = 0; i < index.length; i += 3) {
+      const [ia, ib, ic] = [index[i], index[i + 1], index[i + 2]];
+      const e = [];
+      for (const [u, v] of [[ia, ib], [ib, ic], [ic, ia]]) {
+        e.push(Math.hypot(P[u * 3] - P[v * 3], P[u * 3 + 1] - P[v * 3 + 1], P[u * 3 + 2] - P[v * 3 + 2]));
+      }
+      if (Math.max(...e) / Math.max(1e-9, Math.min(...e)) <= 40) kept.push(ia, ib, ic);
+    }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    geo.setIndex(index);
+    geo.setAttribute("position", new THREE.BufferAttribute(P, 3));
+    geo.setIndex(kept);
+    geo.computeVertexNormals();
+    // 机械件硬边：flat shading（面法线）比平滑法线干净，避免曲率差大处的畸变
+    geo.toNonIndexed();
     geo.computeVertexNormals();
     return geo;
   }
