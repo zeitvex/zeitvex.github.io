@@ -2,10 +2,14 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0d13" />
     <title>zeitvex · RC_WheelLeg — 16DOF 轮足机器人强化学习工程</title>
     <meta name="description" content="RC_WheelLeg：山东华宇工学院 16DOF 串联轮足机器人项目。强化学习训练、MuJoCo Sim2Sim、ROS 2 真机部署，Robocon 仿生足式障碍赛 1050 分。浏览器内在线运行比赛策略。" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./assets/icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
     <link rel="stylesheet" href="./assets/css/site.css" />
   </head>
@@ -54,10 +58,16 @@
         切换策略时按真机运行时的 1.0 秒线性混合过渡。
       </p>
       <div class="demo-frame">
-        <iframe src="./playground.html" title="RC_WheelLeg 在线仿真" loading="lazy" allowfullscreen></iframe>
+        <div class="demo-facade" id="demoFacade">
+          <img src="./docs/demo-poster.jpg" alt="RC_WheelLeg 在线仿真画面预览" width="1280" height="800" />
+          <div class="demo-facade-cta">
+            <button class="demo-play" id="demoPlay" type="button">▶ 加载在线仿真</button>
+            <p>MuJoCo WASM + 比赛策略 · 首次约 4.5 MB · 桌面 / 手机双端</p>
+          </div>
+        </div>
       </div>
       <p class="fineprint">
-        首次加载约 13 MB（MuJoCo WASM + 策略权重，之后走浏览器缓存）。建议桌面端 Chrome / Edge / Firefox 最新版，手机端可横屏使用。
+        仿真为纯前端（物理 + 策略推理 + 渲染全部在浏览器内），可安装为 PWA 离线使用。
         若嵌入窗口操作不便，请 <a href="./playground.html">全屏打开</a>。
       </p>
     </section>
@@ -192,7 +202,21 @@
 
     <footer class="footer">
       <p>© 2026 zeitvex · zeitvex@qq.com · <a href="https://git.zeitvex.com/Robocon/RC_WheelLeg" target="_blank" rel="noopener">git.zeitvex.com/Robocon/RC_WheelLeg</a></p>
-      <p class="fineprint">RC_WheelLeg · 山东华宇工学院 · Robocon 仿生足式障碍赛 1050 分 / 第七名</p>
+      <p class="fineprint">RC_WheelLeg · 山东华宇工学院 · Robocon 仿生足式障碍赛 1050 分 / 第七名 · 本站 MIT 许可，机器人模型与媒体文件保留所有权利</p>
     </footer>
+    <script>
+      // Demo facade：点击后才加载 playground（首屏不为仿真付出 ~4.5MB）
+      document.getElementById("demoPlay").addEventListener("click", () => {
+        const frame = document.querySelector(".demo-frame");
+        const iframe = document.createElement("iframe");
+        iframe.src = "./playground.html";
+        iframe.title = "RC_WheelLeg 在线仿真";
+        iframe.allow = "fullscreen; autoplay";
+        frame.replaceChildren(iframe);
+      });
+      if ("serviceWorker" in navigator) {
+        addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+      }
+    </script>
   </body>
 </html>

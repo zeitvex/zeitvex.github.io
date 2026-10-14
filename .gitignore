@@ -1,0 +1,14 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# Local tooling
+node_modules/
+.tmp-utf8-test.json
+
+# Build scratch (regenerate with tools/build_assets.py + tools/export_weights.py)
+assets/models/verts.bin
+assets/models/idx.bin

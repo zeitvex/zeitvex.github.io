@@ -63,22 +63,21 @@ export class WheelLegSim {
     for (const d of ["/model", "/model/meshes"]) {
       try { FS.mkdir(d); } catch { /* 已存在 */ }
     }
+    // 资产全并行下载（XML + STL + 默认策略权重），再统一写入 FS
     const xmls = ["wheelleg_web.xml", "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml"];
-    for (const f of xmls) {
-      const r = await fetch(`${this.baseUrl}${f}`);
-      FS.writeFile(`/model/${f}`, await r.text());
-    }
     const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
     const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
-    for (const name of meshNames) {
-      const r = await fetch(`${this.baseUrl}meshes/${name}.STL`);
-      FS.writeFile(`/model/meshes/${name}.STL`, new Uint8Array(await r.arrayBuffer()));
-    }
+    const [xmlTexts, meshBufs, roughW] = await Promise.all([
+      Promise.all(xmls.map((f) => fetch(`${this.baseUrl}${f}`).then((r) => r.text()))),
+      Promise.all(meshNames.map((n) => fetch(`${this.baseUrl}meshes/${n}.STL`).then((r) => r.arrayBuffer()))),
+      fetch(`${this.baseUrl}weights/model_6800.bin`).then((r) => r.arrayBuffer()),
+    ]);
+    xmls.forEach((f, i) => FS.writeFile(`/model/${f}`, xmlTexts[i]));
+    meshNames.forEach((n, i) => FS.writeFile(`/model/meshes/${n}.STL`, new Uint8Array(meshBufs[i])));
     onProgress("编译 MuJoCo 模型", 0.7);
     this.loadScene("scene_flat.xml");
-    onProgress("加载比赛策略权重", 0.8);
-    this.sessions = {};
-    await this.ensurePolicy("rough"); // 默认策略即载；其余按需
+    onProgress("就绪", 0.85);
+    this.sessions = { rough: new JsPolicy(roughW) }; // 默认策略即载；其余按需
     this._ortReady = true;
     onProgress("就绪", 1);
     this.phase = "ready";

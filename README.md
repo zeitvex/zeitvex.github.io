@@ -1,6 +1,11 @@
 # zeitvex.github.io
 
-个人站点 + **RC_WheelLeg 16DOF 轮足机器人浏览器在线仿真**。纯静态，GitHub Pages 托管，零后端。
+[![License: MIT](https://img.shields.io/badge/License-MIT-5ec1ff.svg)](LICENSE)
+[![Pages](https://img.shields.io/badge/GitHub%20Pages-live-4ec98a.svg)](https://zeitvex.github.io)
+[![MuJoCo WASM](https://img.shields.io/badge/physics-MuJoCo%20WASM-1769a9.svg)](./playground.html)
+[![PWA](https://img.shields.io/badge/PWA-installable-e0b159.svg)](./manifest.json)
+
+个人站点 + **RC_WheelLeg 16DOF 轮足机器人浏览器在线仿真**。纯静态，GitHub Pages 托管，零后端，可安装为 PWA（离线可用）。
 
 ## 在线仿真（playground.html）
 

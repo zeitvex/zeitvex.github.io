@@ -2,12 +2,19 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0d13" />
     <title>RC_WheelLeg 策略试玩区 · 16DOF 轮足机器人</title>
     <meta name="description" content="浏览器内 MuJoCo WASM 物理 + 纯 JS 比赛策略（model_6800 Rough / model_84 高墙）的 16DOF 轮足机器人实时演示，桌面与手机双端可用。" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./assets/icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
     <link rel="stylesheet" href="./assets/css/lain-playground.css" />
+    <!-- 打开速度：关键大文件与 HTML 解析并行（不等待模块执行） -->
+    <link rel="preload" href="./assets/vendor/mujoco/mujoco.wasm" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="./assets/vendor/three/three.module.js" as="script" crossorigin="anonymous" />
     <script type="importmap">
       {
         "imports": {
@@ -129,5 +136,10 @@
       </aside>
     </main>
     <script type="module" src="./assets/js/app.js?v=3.0.0"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+      }
+    </script>
   </body>
 </html>

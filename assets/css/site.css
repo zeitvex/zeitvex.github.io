@@ -100,6 +100,24 @@ td:not(:first-child) { font-family: var(--mono); font-size: 12.5px; }
   background: #05070b; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
 .demo-frame iframe { display: block; width: 100%; height: min(72vh, 720px); border: 0; }
+/* facade：预览图 + 播放按钮，点击才真正加载仿真 */
+.demo-facade { position: relative; cursor: pointer; }
+.demo-facade img { display: block; width: 100%; height: auto; }
+.demo-facade-cta {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: linear-gradient(180deg, rgba(5, 7, 11, 0.25), rgba(5, 7, 11, 0.72));
+  transition: opacity 0.25s;
+}
+.demo-facade:hover .demo-facade-cta { background: linear-gradient(180deg, rgba(5, 7, 11, 0.15), rgba(5, 7, 11, 0.6)); }
+.demo-play {
+  padding: 14px 30px; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #3d9be0);
+  color: #06121c; font-size: 17px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 10px 34px rgba(94, 193, 255, 0.35);
+}
+.demo-play:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.demo-facade-cta p { margin: 0; color: #aeb8c4; font-size: 13px; }
 
 .timeline { list-style: none; margin: 0; padding: 0; }
 .timeline li {

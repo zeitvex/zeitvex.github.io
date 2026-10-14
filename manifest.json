@@ -1,0 +1,33 @@
+{
+  "name": "RC_WheelLeg 在线仿真 · zeitvex",
+  "short_name": "WheelLeg Sim",
+  "description": "16DOF 轮足机器人比赛策略（model_6800 Rough / model_84 高墙）的浏览器实时仿真：MuJoCo WASM 物理 + 纯 JS 策略推理，桌面与手机双端可用。",
+  "start_url": "./playground.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0d13",
+  "theme_color": "#0a0d13",
+  "lang": "zh-CN",
+  "categories": ["education", "entertainment", "utilities"],
+  "icons": [
+    {
+      "src": "./assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
