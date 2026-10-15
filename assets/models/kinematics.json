@@ -1,0 +1,695 @@
+{
+ "bodies": [
+  {
+   "name": "base_link",
+   "parent": -1,
+   "pos": [
+    0,
+    0,
+    0
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": "free"
+   },
+   "meshes": [
+    {
+     "file": "base_link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fl_hip_abduction_Link",
+   "parent": 0,
+   "pos": [
+    0.32826,
+    0.066172,
+    0.053981
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "name": "fl_hip_abduction_joint"
+   },
+   "meshes": [
+    {
+     "file": "fl_hip_abduction_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fl_hip_pitch_Link",
+   "parent": 1,
+   "pos": [
+    0.06389,
+    -0.027344,
+    0.00010727
+   ],
+   "quat": [
+    0.999997,
+    -0.0025023,
+    0.0,
+    0.0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "fl_hip_pitch_joint"
+   },
+   "meshes": [
+    {
+     "file": "fl_hip_pitch_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fl_knee_Link",
+   "parent": 2,
+   "pos": [
+    0.0,
+    0.1035,
+    -0.25
+   ],
+   "quat": [
+    0.999997,
+    0.0025023,
+    0.0,
+    0.0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "fl_knee_joint"
+   },
+   "meshes": [
+    {
+     "file": "fl_knee_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fl_wheel_Link",
+   "parent": 3,
+   "pos": [
+    0.0,
+    0.014699,
+    -0.20011
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "fl_wheel_joint"
+   },
+   "meshes": [
+    {
+     "file": "fl_wheel_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fr_hip_abduction_Link",
+   "parent": 0,
+   "pos": [
+    0.32826,
+    -0.065853,
+    0.054034
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "name": "fr_hip_abduction_joint"
+   },
+   "meshes": [
+    {
+     "file": "fr_hip_abduction_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fr_hip_pitch_Link",
+   "parent": 5,
+   "pos": [
+    0.06389,
+    0.027311,
+    -0.00036027
+   ],
+   "quat": [
+    0.999976,
+    -0.00686995,
+    0.0,
+    0.0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "fr_hip_pitch_joint"
+   },
+   "meshes": [
+    {
+     "file": "fr_hip_pitch_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fr_knee_Link",
+   "parent": 6,
+   "pos": [
+    -0.00075079,
+    -0.1035,
+    -0.25
+   ],
+   "quat": [
+    0.999976,
+    0.00686995,
+    0.0,
+    0.0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "fr_knee_joint"
+   },
+   "meshes": [
+    {
+     "file": "fr_knee_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fr_wheel_Link",
+   "parent": 7,
+   "pos": [
+    0.0,
+    -0.018447,
+    -0.1998
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "fr_wheel_joint"
+   },
+   "meshes": [
+    {
+     "file": "fr_wheel_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rl_hip_abduction_Link",
+   "parent": 0,
+   "pos": [
+    -0.024743,
+    0.066141,
+    0.054034
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "name": "rl_hip_abduction_joint"
+   },
+   "meshes": [
+    {
+     "file": "rl_hip_abduction_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rl_hip_pitch_Link",
+   "parent": 9,
+   "pos": [
+    -0.06389,
+    -0.027309,
+    0.00045509
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "rl_hip_pitch_joint"
+   },
+   "meshes": [
+    {
+     "file": "rl_hip_pitch_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rl_knee_Link",
+   "parent": 10,
+   "pos": [
+    0.0,
+    0.099459,
+    -0.25163
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "rl_knee_joint"
+   },
+   "meshes": [
+    {
+     "file": "rl_knee_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rl_wheel_Link",
+   "parent": 11,
+   "pos": [
+    0.0,
+    0.012475,
+    -0.20027
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "rl_wheel_joint"
+   },
+   "meshes": [
+    {
+     "file": "rl_wheel_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rr_hip_abduction_Link",
+   "parent": 0,
+   "pos": [
+    -0.024743,
+    -0.065884,
+    0.053981
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "name": "rr_hip_abduction_joint"
+   },
+   "meshes": [
+    {
+     "file": "rr_hip_abduction_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rr_hip_pitch_Link",
+   "parent": 13,
+   "pos": [
+    -0.06389,
+    0.027341,
+    0.00041625
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "rr_hip_pitch_joint"
+   },
+   "meshes": [
+    {
+     "file": "rr_hip_pitch_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rr_knee_Link",
+   "parent": 14,
+   "pos": [
+    -0.00075079,
+    -0.099408,
+    -0.25165
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "rr_knee_joint"
+   },
+   "meshes": [
+    {
+     "file": "rr_knee_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rr_wheel_Link",
+   "parent": 15,
+   "pos": [
+    0.0,
+    -0.012435,
+    -0.20027
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": {
+    "type": null,
+    "axis": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "name": "rr_wheel_joint"
+   },
+   "meshes": [
+    {
+     "file": "rr_wheel_Link",
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "quat": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "imu_link",
+   "parent": 0,
+   "pos": [
+    0.1518,
+    0.0,
+    0.127
+   ],
+   "quat": [
+    1,
+    0,
+    0,
+    0
+   ],
+   "joint": null,
+   "meshes": []
+  }
+ ]
+}

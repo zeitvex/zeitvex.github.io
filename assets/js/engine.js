@@ -20,6 +20,7 @@ export class WheelLegSim {
     this.phase = "idle";              // idle|booting|ready|running|paused
     this.activePolicy = "rough";
     this.policyEnabled = true;        // false = 无策略（PD 姿态保持）
+    this.jointNames = JOINT_ORDER;    // FK 渲染用
     this.command = { vx: 0, vy: 0, wz: 0 };
     this.telemetry = { x: 0, y: 0, z: INIT_HEIGHT, tilt: 0, speed: 0, steps: 0, inferMs: 0, fallen: false, fps: 0, realtime: 0 };
     this._lastAction = { rough: new Float32Array(16), wall: new Float32Array(16) };
@@ -97,34 +98,6 @@ export class WheelLegSim {
     return this;
   }
 
-  /** 后台视觉升级：流式加载 lod1 网格并编译，renderer 随后无感替换几何体。
-   *  STL 网格纯视觉（contype=0），物理与策略不依赖 mesh 顶点，升级零行为影响。 */
-  async upgradeVisuals(onStatus = () => {}) {
-    if (this._upgraded || this._upgrading) return this._hiModel || null;
-    this._upgrading = true;
-    try {
-      const FS = this.mujoco.FS;
-      try { FS.mkdir("/model/meshes-lod1"); } catch { /* exists */ }
-      const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
-      const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
-      await Promise.all(meshNames.map(async (n) => {
-        const r = await fetch(`${this.baseUrl}meshes-lod1/${n}.STL`);
-        FS.writeFile(`/model/meshes-lod1/${n}.STL`, new Uint8Array(await r.arrayBuffer()));
-      }));
-      const hi = this.mujoco.MjModel.mj_loadXML("/model/wheelleg_web_hi.xml");
-      this._hiModel = hi;
-      this._upgraded = true;
-      onStatus("done");
-      return hi;
-    } catch (err) {
-      console.warn("visual upgrade failed:", err);
-      onStatus("failed");
-      return null;
-    } finally {
-      this._upgrading = false;
-    }
-  }
-
   /** 按需加载策略权重（wall 首次切换时拉取，约 0.7 MB） */
   async ensurePolicy(id) {
     if (this.sessions[id]) return;
@@ -133,7 +106,12 @@ export class WheelLegSim {
     this.sessions[id] = new JsPolicy(await r.arrayBuffer());
   }
 
-  loadScene(file) {
+  loadScene(file, keepState = false) {
+    this._currentScene = file;
+    // 可选保留物理状态（视觉升级时无缝延续）
+    const saved = keepState && this.data
+      ? { qpos: Array.from(this.data.qpos), qvel: Array.from(this.data.qvel), ctrl: Array.from(this.data.ctrl), time: this.data.time }
+      : null;
     const mujoco = this.mujoco;
     this.model = mujoco.MjModel.mj_loadXML(`/model/${file}`);
     this.data = new mujoco.MjData(this.model);
@@ -166,7 +144,16 @@ export class WheelLegSim {
     };
     this.obsSystem = createObservationSystems(ctx);
     this.readImuSample = ctx.readImuSample;
-    this.reset();
+    if (saved) {
+      // 无缝延续：恢复物理状态（维度一致：free joint + 16 关节）
+      this.data.qpos.set(saved.qpos.subarray(0, this.data.qpos.length));
+      this.data.qvel.set(saved.qvel.subarray(0, this.data.qvel.length));
+      this.data.ctrl.set(saved.ctrl.subarray(0, this.data.ctrl.length));
+      this.data.time = saved.time;
+      mujoco.mj_forward(this.model, this.data);
+    } else {
+      this.reset();
+    }
     this._captureBase();
     this._applyDisturbance();
   }
