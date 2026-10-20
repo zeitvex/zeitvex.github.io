@@ -31,6 +31,11 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
+          SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '\r\n')"
+          SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '\r\n')"
+          test -n "$SSH_HOST"
+          test -n "$SSH_PORT"
+
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
@@ -43,6 +48,17 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SITE_ROOT: ${{ secrets.SITE_ROOT }}
         run: |
+          SSH_HOST="$(printf '%s' "$SSH_HOST" | tr -d '\r\n')"
+          SSH_USER="$(printf '%s' "$SSH_USER" | tr -d '\r\n')"
+          SSH_PORT="$(printf '%s' "$SSH_PORT" | tr -d '\r\n')"
+          SITE_ROOT="$(printf '%s' "$SITE_ROOT" | tr -d '\r\n')"
+
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_PORT"
+          test -n "$SITE_ROOT"
+          test "$SITE_ROOT" != "/"
+
           rsync -avz --delete \
             --exclude='.git/' \
             --exclude='.github/' \
