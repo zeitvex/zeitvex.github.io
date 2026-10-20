@@ -20,6 +20,7 @@
 }
 .terrain-elements button.active { background: rgba(94,193,255,.18); border-color: rgba(94,193,255,.5); color: #bfe4ff; }
 .boot-screen .boot-mark { color: #5ec1ff; }
+.boot-screen .boot-hint { color: #8a98a3; font-size: .64rem; margin-top: .1rem; }
 @media (max-width: 560px) {
   .action-values { grid-template-columns: 1fr; }
   .top-actions select { max-width: 108px; }

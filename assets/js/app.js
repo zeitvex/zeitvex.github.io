@@ -1,7 +1,7 @@
 // UI 驱动：LainLab playground 外壳 + RC_WheelLeg 静态引擎（双端：桌面键鼠 / 手机摇杆）。
-import { WheelLegSim } from "./engine.js";
-import { SimRenderer } from "./render.js";
-import { POLICIES, TERRAINS, JOINT_LABELS, POLICY_DT, CMD_LIMITS } from "./contract.js";
+import { WheelLegSim } from "./engine.js?v=3.1.0";
+import { SimRenderer } from "./render.js?v=3.1.0";
+import { POLICIES, TERRAINS, JOINT_LABELS, POLICY_DT, CMD_LIMITS } from "./contract.js?v=3.1.0";
 
 const $ = (id) => document.getElementById(id);
 const MODELS_URL = new URL("../models/", import.meta.url).href;
@@ -25,7 +25,7 @@ const ui = {
 };
 
 // 指令状态：摇杆优先，其次键盘
-const assign = { vx: 0.6, vy: 0.5, wz: 0.6 };
+const assign = { vx: 1, vy: 1, wz: 1 };
 const joy = { vx: 0, vy: 0, wz: 0, active: false };
 const keys = new Set();
 
@@ -91,20 +91,35 @@ async function boot() {
       $(id).disabled = false;
     }
     setRunning(true); // 自动运行（与 LainLab playground 一致）
-    // 后台视觉升级：lod1 STL 重新解析并替换 geometry（FK 渲染，无 MuJoCo 参与）
+    // 后台视觉升级：延迟加载 LOD1（约 15 MB），省流/慢网跳过，避免抢占首屏带宽
     const visual = $("visualState");
-    renderer.upgradeMeshes().then((n) => {
-      if (!visual) return;
-      visual.hidden = false;
-      visual.textContent = `视觉细节已增强（${n} 件）`;
-      visual.className = "pill ok";
-    }).catch((err) => {
-      console.warn("visual upgrade failed:", err);
-      if (!visual) return;
-      visual.hidden = false;
-      visual.textContent = "视觉增强失败（保持低模）";
-      visual.className = "pill";
-    });
+    const conn = navigator.connection;
+    const slow = Boolean(conn && (conn.saveData
+      || ["slow-2g", "2g", "3g"].includes(conn.effectiveType)
+      || (typeof conn.downlink === "number" && conn.downlink < 1.5)));
+    const upgradeMeshes = () => {
+      renderer.upgradeMeshes().then((n) => {
+        if (!visual) return;
+        visual.hidden = false;
+        visual.textContent = `视觉细节已增强（${n} 件）`;
+        visual.className = "pill ok";
+      }).catch((err) => {
+        console.warn("visual upgrade failed:", err);
+        if (!visual) return;
+        visual.hidden = false;
+        visual.textContent = "视觉增强失败（保持低模）";
+        visual.className = "pill";
+      });
+    };
+    if (slow) {
+      if (visual) {
+        visual.hidden = false;
+        visual.textContent = "省流模式（低模）";
+        visual.className = "pill";
+      }
+    } else {
+      setTimeout(upgradeMeshes, 4000);
+    }
     requestAnimationFrame(frame);
   } catch (err) {
     ui.bootStage.textContent = `启动失败: ${err.message}`;

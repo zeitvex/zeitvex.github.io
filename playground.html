@@ -12,10 +12,22 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="./favicon.png?v=20261021" type="image/png" />
-    <link rel="stylesheet" href="./assets/css/lain-playground.css" />
+    <link rel="stylesheet" href="./assets/css/lain-playground.css?v=3.1.0" />
     <!-- 打开速度：关键大文件与 HTML 解析并行（不等待模块执行） -->
-    <link rel="preload" href="./assets/vendor/mujoco/mujoco.wasm" as="fetch" crossorigin="anonymous" />
+    <script>
+      (() => {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "fetch";
+        link.crossOrigin = "anonymous";
+        link.href = "DecompressionStream" in window
+          ? "./assets/vendor/mujoco/mujoco.wasm.gz"
+          : "./assets/vendor/mujoco/mujoco.wasm";
+        document.head.appendChild(link);
+      })();
+    </script>
     <link rel="preload" href="./assets/vendor/three/three.module.js" as="script" crossorigin="anonymous" />
+    <link rel="preload" href="./assets/models/weights/model_6800.bin" as="fetch" crossorigin="anonymous" />
     <script type="importmap">
       {
         "imports": {
@@ -35,6 +47,7 @@
         <span id="bootStage">初始化场景…</span>
         <div class="boot-progress" aria-label="加载进度"><i id="bootProgress"></i></div>
         <output id="bootPercent">0%</output>
+        <span class="boot-hint">首次约 10 MB · 之后走缓存</span>
       </div>
 
       <header class="top-bar">
@@ -91,11 +104,11 @@
           <div><p class="panel-kicker">COMMAND</p><strong>指令赋值</strong></div>
           <button id="cmdClose" class="icon-button" aria-label="关闭指令面板">×</button>
         </div>
-        <p class="panel-copy">键盘 W/S 前后、A/D 横移、Q/E 转向；此处设置按键与摇杆对应的速度赋值。限幅与真机一致：vx ±0.9 m/s、vy ±0.5 m/s、ω ±1.0 rad/s。</p>
+        <p class="panel-copy">键盘 W/S 前后、A/D 横移、Q/E 转向；此处设置按键与摇杆对应的速度赋值。赋值范围 0–2，默认 1；方向由摇杆/按键决定。指令超出训练范围时策略稳定性可能下降。</p>
         <div class="command-settings">
-          <label><span>vx 赋值</span><input id="commandSpeedVx" type="range" min="0.1" max="1" step="0.05" value="0.6" /><output id="commandSpeedVxValue">0.60 m/s</output></label>
-          <label><span>vy 赋值</span><input id="commandSpeedVy" type="range" min="0.1" max="1" step="0.05" value="0.5" /><output id="commandSpeedVyValue">0.50 m/s</output></label>
-          <label><span>ω 赋值</span><input id="commandSpeedYaw" type="range" min="0.1" max="1" step="0.05" value="0.6" /><output id="commandSpeedYawValue">0.60 rad/s</output></label>
+          <label><span>vx 赋值</span><input id="commandSpeedVx" type="range" min="0" max="2" step="0.05" value="1" /><output id="commandSpeedVxValue">1.00 m/s</output></label>
+          <label><span>vy 赋值</span><input id="commandSpeedVy" type="range" min="0" max="2" step="0.05" value="1" /><output id="commandSpeedVyValue">1.00 m/s</output></label>
+          <label><span>ω 赋值</span><input id="commandSpeedYaw" type="range" min="0" max="2" step="0.05" value="1" /><output id="commandSpeedYawValue">1.00 rad/s</output></label>
         </div>
         <div class="command-live" aria-label="当前运动指令">
           <strong>当前指令</strong>
@@ -137,7 +150,7 @@
         <p class="terrain-hint" id="terrainHint">当前：平地。高墙地形请搭配「高墙 · model_84」策略。</p>
       </aside>
     </main>
-    <script type="module" src="./assets/js/app.js?v=3.0.0"></script>
+    <script type="module" src="./assets/js/app.js?v=3.1.0"></script>
     <script>
       if ("serviceWorker" in navigator) {
         addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));

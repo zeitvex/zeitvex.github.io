@@ -125,7 +125,9 @@ export class SimRenderer {
     // 下载并解析 lod0 STL
     const names = this.kin.bodies.flatMap((b) => b.meshes.map((m) => m.file));
     await Promise.all(names.map(async (n) => {
-      this.meshFiles[n] = await (await fetch(`${base}meshes-lod0/${n}.STL`)).arrayBuffer();
+      // 引擎已把同一批 STL 写入 MuJoCo FS，这里直接复用，避免二次下载
+      this.meshFiles[n] = this.sim.meshBuffers?.get(n)
+        || await (await fetch(`${base}meshes-lod0/${n}.STL`)).arrayBuffer();
     }));
     this.build();
   }

@@ -1,6 +1,6 @@
 // Service Worker：导航请求网络优先，静态资产缓存优先。
 // 旧版本曾把 index.html 缓存为 RC_WheelLeg 落地页，这里升级缓存名并让 HTML 始终先走网络。
-const CACHE = "zeitvex-site-v6";
+const CACHE = "zeitvex-site-v7";
 const SHELL = [
   "./",
   "./index.html",

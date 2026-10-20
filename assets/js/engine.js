@@ -9,7 +9,7 @@ import {
   JOINT_ORDER, ACTION_SCALE, DEFAULT_POSE, makeConfig,
   PHYSICS_DT, DECIMATION, POLICY_DT, INIT_HEIGHT, SETTLE_STEPS, BLEND_STEPS,
   CMD_LIMITS, POLICIES,
-} from "./contract.js";
+} from "./contract.js?v=3.1.0";
 
 const MJ_OBJ_JOINT = 3;      // 经验枚举值（本 wasm 构建实测）
 const MJ_OBJ_ACTUATOR = 19;
@@ -35,51 +35,50 @@ export class WheelLegSim {
   async boot(onProgress = () => {}) {
     this.phase = "booting";
     onProgress("加载 MuJoCo WebAssembly", 0.05);
-    // 流式读取 wasm 以获得真实下载进度，编译时直接传字节（避免二次请求）
+
     const wasmUrl = new URL("../vendor/mujoco/mujoco.wasm", import.meta.url).href;
-    const resp = await fetch(wasmUrl);
-    const total = Number(resp.headers.get("content-length") || 0);
-    if (resp.body && total) {
-      const reader = resp.body.getReader();
-      const chunks = [];
-      let got = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        got += value.length;
-        const mb = (got / 1048576).toFixed(1);
-        onProgress(`加载 MuJoCo WebAssembly ${mb} / ${(total / 1048576).toFixed(1)} MB`, 0.05 + 0.4 * (got / total));
-      }
-      const wasmBinary = new Uint8Array(got);
-      let off = 0;
-      for (const c of chunks) { wasmBinary.set(c, off); off += c.length; }
-      this.mujoco = await loadMujoco({ wasmBinary });
-    } else {
-      this.mujoco = await loadMujoco();
-    }
+    const canGunzip = typeof DecompressionStream !== "undefined";
+    const xmls = ["wheelleg_web.xml", "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml"];
+
+    // 模型 / 网格 / 默认权重与 WASM 并行下载，避免串行等待
+    let assetsError = null;
+    const assetsPromise = (async () => {
+      const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
+      const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
+      const fetchLog = [];
+      const [xmlTexts, meshBufs, roughW] = await Promise.all([
+        Promise.all(xmls.map((f) => fetch(`${this.baseUrl}${f}`).then((r) => r.text()))),
+        Promise.all(meshNames.map((n) => fetch(`${this.baseUrl}meshes-lod0/${n}.STL`).then((r) => {
+          if (!r.ok) fetchLog.push({ n, status: r.status });
+          return r.arrayBuffer();
+        }))),
+        fetch(`${this.baseUrl}weights/model_6800.bin`).then((r) => r.arrayBuffer()),
+      ]);
+      if (fetchLog.length) throw new Error(`网格下载失败: ${JSON.stringify(fetchLog.slice(0, 3))}`);
+      return { meshNames, xmlTexts, meshBufs, roughW };
+    })().catch((err) => { assetsError = err; return null; });
+
+    // gzip 预压缩 WASM：约 10.1 MB -> 2.4 MB；不支持 DecompressionStream 时回退原始文件
+    const wasmBinary = await this._loadWasm(wasmUrl, canGunzip, onProgress);
+    this.mujoco = await loadMujoco({ wasmBinary });
     const FS = this.mujoco.FS;
     if (!FS) throw new Error("MuJoCo WASM 未暴露文件系统");
-    onProgress("写入模型与网格", 0.5);
+
     for (const d of ["/model", "/model/meshes-lod0"]) {
       try { FS.mkdir(d); } catch { /* 已存在 */ }
     }
-    // 资产全并行下载（XML + STL + 默认策略权重），再统一写入 FS
-    const xmls = ["wheelleg_web.xml", "wheelleg_web_hi.xml", "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml"];
-    const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
-    const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
-    const fetchLog = [];
-    const [xmlTexts, meshBufs, roughW] = await Promise.all([
-      Promise.all(xmls.map((f) => fetch(`${this.baseUrl}${f}`).then((r) => r.text()))),
-      Promise.all(meshNames.map((n) => fetch(`${this.baseUrl}meshes-lod0/${n}.STL`).then((r) => {
-        if (!r.ok) fetchLog.push({ n, status: r.status });
-        return r.arrayBuffer();
-      }))),
-      fetch(`${this.baseUrl}weights/model_6800.bin`).then((r) => r.arrayBuffer()),
-    ]);
-    if (fetchLog.length) throw new Error(`网格下载失败: ${JSON.stringify(fetchLog.slice(0, 3))}`);
+
+    onProgress("加载模型与网格", 0.5);
+    const assets = await assetsPromise;
+    if (assetsError) throw assetsError;
+    if (!assets) throw new Error("模型资源加载失败");
+    onProgress("写入模型与网格", 0.55);
+    const { meshNames, xmlTexts, meshBufs, roughW } = assets;
     xmls.forEach((f, i) => FS.writeFile(`/model/${f}`, xmlTexts[i]));
     meshNames.forEach((n, i) => FS.writeFile(`/model/meshes-lod0/${n}.STL`, new Uint8Array(meshBufs[i])));
+    // 渲染器复用同一批 STL，避免重复下载约 6.4 MB
+    this.meshBuffers = new Map(meshNames.map((n, i) => [n, meshBufs[i]]));
+
     // 自检：写后读回，定位“fetch 坏”还是“writeFile 丢数据”
     const fsLens = meshNames.map((n) => { try { return FS.stat(`/model/meshes-lod0/${n}.STL`).size; } catch { return -1; } });
     const bufLens = meshBufs.map((b) => b.byteLength);
@@ -96,6 +95,43 @@ export class WheelLegSim {
     onProgress("就绪", 1);
     this.phase = "ready";
     return this;
+  }
+
+  async _loadWasm(wasmUrl, compressed, onProgress) {
+    const url = compressed ? `${wasmUrl}.gz` : wasmUrl;
+    const resp = await fetch(url);
+    if (!resp.ok && compressed) return this._loadWasm(wasmUrl, false, onProgress);
+    if (!resp.ok) throw new Error(`WASM 下载失败: ${resp.status}`);
+
+    const total = Number(resp.headers.get("content-length") || 0);
+    let bytes;
+    if (resp.body && total) {
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let got = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        got += value.length;
+        const mb = (got / 1048576).toFixed(1);
+        onProgress(`加载 MuJoCo WebAssembly ${mb} / ${(total / 1048576).toFixed(1)} MB`, 0.05 + 0.4 * (got / total));
+      }
+      bytes = new Uint8Array(got);
+      let off = 0;
+      for (const c of chunks) { bytes.set(c, off); off += c.length; }
+    } else {
+      bytes = new Uint8Array(await resp.arrayBuffer());
+    }
+    if (!compressed) return bytes;
+
+    try {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch (err) {
+      console.warn("WASM gzip 解压失败，回退原始文件", err);
+      return this._loadWasm(wasmUrl, false, onProgress);
+    }
   }
 
   /** 按需加载策略权重（wall 首次切换时拉取，约 0.7 MB） */
