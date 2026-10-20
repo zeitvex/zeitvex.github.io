@@ -168,6 +168,11 @@ export class SimRenderer {
       this.grid.geometry.dispose();
       this.grid = null;
     }
+    for (const t of this.terrainBoxes || []) {
+      this.scene.remove(t.obj);
+      t.obj.geometry.dispose();
+    }
+    this.terrainBoxes = [];
 
     this.robotRoot = new THREE.Group();
     this.scene.add(this.robotRoot);
@@ -190,11 +195,31 @@ export class SimRenderer {
       }
     });
 
-    // 地形：floor + 静态 box（来自 MuJoCo geom，body 0 的世界系）
+    // 地形：渲染所有非机器人 body 的静态 geom（含公共地图库中的嵌套 body）
     const { model, mujoco } = this.sim;
+    const data = this.sim.data;
+    const robotBodyIds = new Set();
+    for (const b of this.kin.bodies) {
+      if (!b.name) continue;
+      const id = mujoco.mj_name2id(model, 1, b.name);
+      if (id > 0) robotBodyIds.add(id);
+    }
+    const geomMat = new THREE.Matrix4();
+    const applyPose = (obj, i) => {
+      obj.position.set(data.geom_xpos[i * 3], data.geom_xpos[i * 3 + 1], data.geom_xpos[i * 3 + 2]);
+      const m = data.geom_xmat;
+      geomMat.set(
+        m[i * 9], m[i * 9 + 1], m[i * 9 + 2], 0,
+        m[i * 9 + 3], m[i * 9 + 4], m[i * 9 + 5], 0,
+        m[i * 9 + 6], m[i * 9 + 7], m[i * 9 + 8], 0,
+        0, 0, 0, 1,
+      );
+      obj.quaternion.setFromRotationMatrix(geomMat);
+    };
+
     for (let i = 0; i < model.ngeom; i += 1) {
+      if (robotBodyIds.has(model.geom_bodyid[i])) continue;
       const type = model.geom_type[i];
-      if (model.geom_bodyid[i] !== 0) continue; // 只渲染世界体几何（地板/地形）
       const size = [model.geom_size[i * 3], model.geom_size[i * 3 + 1], model.geom_size[i * 3 + 2]];
       if (type === MJ_GEOM_PLANE) {
         const floor = new THREE.Mesh(
@@ -211,10 +236,21 @@ export class SimRenderer {
         grid.material.opacity = 0.5;
         this.scene.add(grid);
         this.grid = grid;
-      } else if (type === MJ_GEOM_BOX) {
-        const obj = new THREE.Mesh(new THREE.BoxGeometry(size[0] * 2, size[1] * 2, size[2] * 2), this.terrainMat);
+      } else {
+        let geometry = null;
+        if (type === MJ_GEOM_BOX) {
+          geometry = new THREE.BoxGeometry(size[0] * 2, size[1] * 2, size[2] * 2);
+        } else if (type === MJ_GEOM_CYLINDER) {
+          geometry = new THREE.CylinderGeometry(size[0], size[0], size[1] * 2, 24);
+          geometry.rotateX(Math.PI / 2); // MuJoCo cylinder 沿局部 Z 轴
+        } else if (type === MJ_GEOM_SPHERE) {
+          geometry = new THREE.SphereGeometry(size[0], 24, 16);
+        }
+        if (!geometry) continue;
+        const obj = new THREE.Mesh(geometry, this.terrainMat);
         const p = mujoco.mj_id2name(model, 4, i);
         obj.name = p || `terrain${i}`;
+        applyPose(obj, i);
         this.scene.add(obj);
         this.terrainBoxes = this.terrainBoxes || [];
         this.terrainBoxes.push({ obj, gid: i });
@@ -262,12 +298,6 @@ export class SimRenderer {
 
   sync() {
     this.fk();
-    const { data, model, mujoco } = this.sim;
-    // 地形盒（静态）：位姿来自 geom_xpos
-    for (const t of this.terrainBoxes || []) {
-      const i = t.gid;
-      t.obj.position.set(data.geom_xpos[i * 3], data.geom_xpos[i * 3 + 1], data.geom_xpos[i * 3 + 2]);
-    }
     const base = this.bodyGroups[0];
     if (this.follow && base) {
       const delta = base.position.clone().sub(this._prevBase);
@@ -306,6 +336,8 @@ export class SimRenderer {
   }
 
   fitView() {
+    this.fk();
+    this.scene.updateMatrixWorld(true);
     const box = new THREE.Box3();
     for (const obj of this.meshObjects) {
       obj.geometry.computeBoundingBox();
@@ -319,7 +351,9 @@ export class SimRenderer {
     const r = box.getSize(new THREE.Vector3()).length() / 2;
     const dir = new THREE.Vector3(0.75, -1.3, 0.45).normalize();
     this.controls.target.copy(c);
-    this.camera.position.copy(c).addScaledVector(dir, Math.max(1.2, r * 1.9));
+    this.camera.position.copy(c).addScaledVector(dir, Math.max(3.0, r * 3.6));
+    const base = this.bodyGroups[0]?.position;
+    if (base) this._prevBase.copy(base);
   }
 
   resize(w, h) {

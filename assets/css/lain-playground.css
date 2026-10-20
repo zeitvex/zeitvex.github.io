@@ -98,3 +98,33 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 @media (display-mode: standalone) {
   .top-bar { padding-top: max(12px, env(safe-area-inset-top)); }
 }
+
+/* 公共地图库：分组按钮 */
+.terrain-elements {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 250px;
+  overflow: auto;
+}
+.terrain-group { display: flex; flex-direction: column; gap: 4px; }
+.terrain-group-title {
+  color: #70808c;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  margin: 0;
+}
+.terrain-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.terrain-buttons button {
+  background: #fff;
+  border: 1px solid #c7d0d8;
+  color: #24313b;
+  font-size: .61rem;
+  min-height: 28px;
+  opacity: 1;
+  padding: .3rem .35rem;
+  text-align: left;
+}
+.terrain-buttons button:hover:not(:disabled) { background: #f0f6fa; border-color: #7f919f; }
+.terrain-buttons button.active { background: #e6f0f8; border-color: #7ca4c3; color: #145486; }

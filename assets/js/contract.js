@@ -63,11 +63,27 @@ export const POLICIES = [
   { id: "wall", label: "高墙策略 · model_84", file: "model_84.onnx", note: "Robocon 高墙专用策略" },
 ];
 
+export const TERRAIN_GROUPS = {
+  basic: "基础",
+  stairs: "台阶",
+  platform: "高台 / 障碍",
+  slope: "坡面",
+  rough: "粗糙地形",
+  complex: "综合场景",
+};
+
 export const TERRAINS = [
-  { id: "flat", label: "平地", file: "scene_flat.xml" },
-  { id: "stairs", label: "台阶", file: "scene_stairs.xml" },
-  { id: "rough", label: "粗糙网格", file: "scene_rough.xml" },
-  { id: "wall", label: "五道高墙", file: "scene_wall.xml" },
+  { id: "flat", label: "平地", file: "scene_flat.xml", category: "basic", note: "无限平面，基线检查。" },
+  { id: "stairs", label: "RC 台阶", file: "scene_stairs.xml", category: "stairs", note: "RC 比赛台阶。" },
+  { id: "map_stairs", label: "长楼梯", file: "map_stairs.xml", category: "stairs", spawn: [5, 0], note: "长距离楼梯，踏步高度递增。" },
+  { id: "map_cross_stairs", label: "交叉楼梯", file: "map_cross_stairs.xml", category: "stairs", note: "双向交叉楼梯，上下行交替。" },
+  { id: "wall", label: "五道高墙", file: "scene_wall.xml", category: "platform", note: "高墙地形请搭配「高墙 · model_84」策略。" },
+  { id: "map_high_platforms", label: "高台 30–100 cm", file: "map_high_platforms.xml", category: "platform", note: "分级高台群，考验越障与落点。" },
+  { id: "map_slope", label: "斜坡 15°", file: "map_slope.xml", category: "slope", note: "15° 上下坡走廊。" },
+  { id: "map_cross_slope", label: "横坡", file: "map_cross_slope.xml", category: "slope", spawn: [1.5, 0], note: "横向斜坡，考验侧向平衡。" },
+  { id: "rough", label: "RC 粗糙网格", file: "scene_rough.xml", category: "rough", note: "RC 比赛随机网格。" },
+  { id: "map_relief", label: "起伏围场", file: "map_relief.xml", category: "rough", note: "3×3 m 围场 + 三个圆柱凸台。" },
+  { id: "map_race_track", label: "环形赛道", file: "map_race_track.xml", category: "complex", note: "环形赛道，适合持续速度跟踪。" },
 ];
 
 export function makeConfig() {

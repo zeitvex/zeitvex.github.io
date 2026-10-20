@@ -1,7 +1,7 @@
 // UI 驱动：LainLab playground 外壳 + RC_WheelLeg 静态引擎（双端：桌面键鼠 / 手机摇杆）。
-import { WheelLegSim } from "./engine.js?v=3.1.0";
-import { SimRenderer } from "./render.js?v=3.1.0";
-import { POLICIES, TERRAINS, JOINT_LABELS, POLICY_DT, CMD_LIMITS } from "./contract.js?v=3.1.0";
+import { WheelLegSim } from "./engine.js?v=3.2.4";
+import { SimRenderer } from "./render.js?v=3.2.4";
+import { POLICIES, TERRAINS, TERRAIN_GROUPS, JOINT_LABELS, POLICY_DT, CMD_LIMITS } from "./contract.js?v=3.2.4";
 
 const $ = (id) => document.getElementById(id);
 const MODELS_URL = new URL("../models/", import.meta.url).href;
@@ -81,11 +81,24 @@ async function boot() {
       o.textContent = "无策略（姿态保持）";
       ui.policy.appendChild(o);
     }
+    const terrainGroups = new Map();
     for (const t of TERRAINS) {
-      const o = document.createElement("option");
-      o.value = t.id;
-      o.textContent = t.label;
-      ui.terrain.appendChild(o);
+      if (!terrainGroups.has(t.category)) terrainGroups.set(t.category, []);
+      terrainGroups.get(t.category).push(t);
+    }
+    for (const [category, items] of terrainGroups) {
+      const og = document.createElement("optgroup");
+      og.label = TERRAIN_GROUPS[category] || category;
+      for (const t of items) {
+        const o = document.createElement("option");
+        o.value = t.id;
+        o.textContent = t.label;
+        og.appendChild(o);
+      }
+      ui.terrain.appendChild(og);
+    }
+    for (const b of document.querySelectorAll("[data-terrain-preset]")) {
+      b.classList.toggle("active", b.dataset.terrainPreset === ui.terrain.value);
     }
     for (const id of ["start", "reset", "cmdToggle", "monitorToggle", "terrainToggle", "policySelect", "terrainSelect"]) {
       $(id).disabled = false;
@@ -213,12 +226,23 @@ ui.policy.addEventListener("change", async () => {
 });
 ui.terrain.addEventListener("change", () => {
   const t = TERRAINS.find((x) => x.id === ui.terrain.value);
-  sim.loadScene(t.file);
-  if (renderer) { renderer.build(); renderer.clearTrail(); }
-  for (const b of document.querySelectorAll("[data-terrain-preset]")) {
-    b.classList.toggle("active", b.dataset.terrainPreset === t.id);
+  if (!t) return;
+  try {
+    sim.loadScene(t.file);
+    sim.setSpawn(...(t.spawn || [0, 0]));
+    if (renderer) {
+      renderer.build();
+      renderer.fitView();
+      renderer.clearTrail();
+    }
+    for (const b of document.querySelectorAll("[data-terrain-preset]")) {
+      b.classList.toggle("active", b.dataset.terrainPreset === t.id);
+    }
+    $("terrainHint").textContent = `当前：${t.label}。${t.note || ""}`;
+  } catch (err) {
+    console.error("terrain load failed:", err);
+    $("terrainHint").textContent = `地形加载失败：${err.message}`;
   }
-  $("terrainHint").textContent = `当前：${t.label}。${t.id === "wall" ? "高墙地形请搭配「高墙 · model_84」策略。" : ""}`;
 });
 
 // ---- 键盘 ----
@@ -292,6 +316,37 @@ $("terrainToggle").addEventListener("click", () => { ui.terrainPanel.hidden = !u
 $("cmdClose").addEventListener("click", () => { ui.cmdPanel.hidden = true; });
 $("monitorClose").addEventListener("click", () => { ui.monitorPanel.hidden = true; });
 $("terrainClose").addEventListener("click", () => { ui.terrainPanel.hidden = true; });
+function renderTerrainButtons() {
+  const container = $("terrainElements");
+  if (!container) return;
+  container.replaceChildren();
+  const groups = new Map();
+  for (const t of TERRAINS) {
+    if (!groups.has(t.category)) groups.set(t.category, []);
+    groups.get(t.category).push(t);
+  }
+  const activeId = ui.terrain.value || TERRAINS[0].id;
+  for (const [category, items] of groups) {
+    const group = document.createElement("div");
+    group.className = "terrain-group";
+    const title = document.createElement("p");
+    title.className = "terrain-group-title";
+    title.textContent = TERRAIN_GROUPS[category] || category;
+    const buttons = document.createElement("div");
+    buttons.className = "terrain-buttons";
+    for (const t of items) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.terrainPreset = t.id;
+      b.textContent = t.label;
+      b.classList.toggle("active", t.id === activeId);
+      buttons.appendChild(b);
+    }
+    group.append(title, buttons);
+    container.appendChild(group);
+  }
+}
+renderTerrainButtons();
 for (const b of document.querySelectorAll("[data-terrain-preset]")) {
   b.addEventListener("click", () => {
     ui.terrain.value = b.dataset.terrainPreset;

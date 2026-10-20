@@ -12,7 +12,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="./favicon.png?v=20261021" type="image/png" />
-    <link rel="stylesheet" href="./assets/css/lain-playground.css?v=3.1.0" />
+    <link rel="stylesheet" href="./assets/css/lain-playground.css?v=3.2.5" />
     <!-- 打开速度：关键大文件与 HTML 解析并行（不等待模块执行） -->
     <script>
       (() => {
@@ -140,17 +140,12 @@
           <div><p class="panel-kicker">TERRAIN</p><strong>比赛地形预设</strong></div>
           <button id="terrainClose" class="icon-button" aria-label="关闭地形面板">×</button>
         </div>
-        <p class="panel-copy">与 Robot-Rough-v0 训练地形混合对应的四种预设。切换后机器人重置到地形起点。</p>
-        <div class="terrain-elements">
-          <button type="button" data-terrain-preset="flat" class="active">平地</button>
-          <button type="button" data-terrain-preset="stairs">正向台阶</button>
-          <button type="button" data-terrain-preset="rough">随机网格</button>
-          <button type="button" data-terrain-preset="wall">五道高墙</button>
-        </div>
-        <p class="terrain-hint" id="terrainHint">当前：平地。高墙地形请搭配「高墙 · model_84」策略。</p>
+        <p class="panel-copy">来自公共地图库的地形，覆盖台阶、坡面、高台、粗糙与赛道场景。切换后机器人重置到起点。</p>
+        <div id="terrainElements" class="terrain-elements"></div>
+        <p class="terrain-hint" id="terrainHint">当前：平地。</p>
       </aside>
     </main>
-    <script type="module" src="./assets/js/app.js?v=3.1.0"></script>
+    <script type="module" src="./assets/js/app.js?v=3.2.4"></script>
     <script>
       if ("serviceWorker" in navigator) {
         addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));

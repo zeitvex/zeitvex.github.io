@@ -9,7 +9,7 @@ import {
   JOINT_ORDER, ACTION_SCALE, DEFAULT_POSE, makeConfig,
   PHYSICS_DT, DECIMATION, POLICY_DT, INIT_HEIGHT, SETTLE_STEPS, BLEND_STEPS,
   CMD_LIMITS, POLICIES,
-} from "./contract.js?v=3.1.0";
+} from "./contract.js?v=3.2.4";
 
 const MJ_OBJ_JOINT = 3;      // 经验枚举值（本 wasm 构建实测）
 const MJ_OBJ_ACTUATOR = 19;
@@ -30,6 +30,7 @@ export class WheelLegSim {
     this._actionDelay = 0;
     this._disturbance = { payload: 0, friction: 0.8, comX: 0, comY: 0 };
     this._base = { mass: 0, ipos: [0, 0, 0] };
+    this._spawn = { x: 0, y: 0 };
   }
 
   async boot(onProgress = () => {}) {
@@ -38,7 +39,14 @@ export class WheelLegSim {
 
     const wasmUrl = new URL("../vendor/mujoco/mujoco.wasm", import.meta.url).href;
     const canGunzip = typeof DecompressionStream !== "undefined";
-    const xmls = ["wheelleg_web.xml", "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml"];
+    const xmls = [
+      "wheelleg_web.xml",
+      "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml",
+      "map_stairs.xml", "map_cross_stairs.xml", "map_high_platforms.xml",
+      "map_cross_slope.xml", "map_slope.xml", "map_relief.xml",
+      "map_race_track.xml",
+    ];
+    const imgNames = ["label_1.png", "label_4.png", "label_7.png", "label_10.png"];
 
     // 模型 / 网格 / 默认权重与 WASM 并行下载，避免串行等待
     let assetsError = null;
@@ -46,16 +54,20 @@ export class WheelLegSim {
       const meshList = await (await fetch(`${this.baseUrl}meshes.json`)).json();
       const meshNames = Array.isArray(meshList.meshes) ? meshList.meshes : Object.keys(meshList.meshes);
       const fetchLog = [];
-      const [xmlTexts, meshBufs, roughW] = await Promise.all([
+      const [xmlTexts, meshBufs, roughW, imgBufs] = await Promise.all([
         Promise.all(xmls.map((f) => fetch(`${this.baseUrl}${f}`).then((r) => r.text()))),
         Promise.all(meshNames.map((n) => fetch(`${this.baseUrl}meshes-lod0/${n}.STL`).then((r) => {
           if (!r.ok) fetchLog.push({ n, status: r.status });
           return r.arrayBuffer();
         }))),
         fetch(`${this.baseUrl}weights/model_6800.bin`).then((r) => r.arrayBuffer()),
+        Promise.all(imgNames.map((n) => fetch(`${this.baseUrl}imgs/${n}`).then((r) => {
+          if (!r.ok) fetchLog.push({ n: `imgs/${n}`, status: r.status });
+          return r.arrayBuffer();
+        }))),
       ]);
-      if (fetchLog.length) throw new Error(`网格下载失败: ${JSON.stringify(fetchLog.slice(0, 3))}`);
-      return { meshNames, xmlTexts, meshBufs, roughW };
+      if (fetchLog.length) throw new Error(`资源下载失败: ${JSON.stringify(fetchLog.slice(0, 3))}`);
+      return { meshNames, xmlTexts, meshBufs, roughW, imgBufs };
     })().catch((err) => { assetsError = err; return null; });
 
     // gzip 预压缩 WASM：约 10.1 MB -> 2.4 MB；不支持 DecompressionStream 时回退原始文件
@@ -64,7 +76,7 @@ export class WheelLegSim {
     const FS = this.mujoco.FS;
     if (!FS) throw new Error("MuJoCo WASM 未暴露文件系统");
 
-    for (const d of ["/model", "/model/meshes-lod0"]) {
+    for (const d of ["/model", "/model/meshes-lod0", "/model/imgs"]) {
       try { FS.mkdir(d); } catch { /* 已存在 */ }
     }
 
@@ -73,9 +85,10 @@ export class WheelLegSim {
     if (assetsError) throw assetsError;
     if (!assets) throw new Error("模型资源加载失败");
     onProgress("写入模型与网格", 0.55);
-    const { meshNames, xmlTexts, meshBufs, roughW } = assets;
+    const { meshNames, xmlTexts, meshBufs, roughW, imgBufs } = assets;
     xmls.forEach((f, i) => FS.writeFile(`/model/${f}`, xmlTexts[i]));
     meshNames.forEach((n, i) => FS.writeFile(`/model/meshes-lod0/${n}.STL`, new Uint8Array(meshBufs[i])));
+    imgNames.forEach((n, i) => FS.writeFile(`/model/imgs/${n}`, new Uint8Array(imgBufs[i])));
     // 渲染器复用同一批 STL，避免重复下载约 6.4 MB
     this.meshBuffers = new Map(meshNames.map((n, i) => [n, meshBufs[i]]));
 
@@ -224,7 +237,7 @@ export class WheelLegSim {
 
   reset() {
     const d = this.data;
-    d.qpos[0] = 0; d.qpos[1] = 0; d.qpos[2] = INIT_HEIGHT;
+    d.qpos[0] = this._spawn.x; d.qpos[1] = this._spawn.y; d.qpos[2] = INIT_HEIGHT;
     d.qpos[3] = 1; d.qpos[4] = 0; d.qpos[5] = 0; d.qpos[6] = 0;
     for (let i = 0; i < 16; i += 1) {
       d.qpos[this.maps.qposAdr[i]] = DEFAULT_POSE[i];
@@ -238,6 +251,15 @@ export class WheelLegSim {
     this._actionQueue = [];
     this.telemetry.steps = 0;
     this.telemetry.fallen = false;
+  }
+
+  setSpawn(x, y) {
+    this._spawn.x = x;
+    this._spawn.y = y;
+    if (!this.data) return;
+    this.data.qpos[0] = x;
+    this.data.qpos[1] = y;
+    this.mujoco.mj_forward(this.model, this.data);
   }
 
   switchPolicy(id) {
