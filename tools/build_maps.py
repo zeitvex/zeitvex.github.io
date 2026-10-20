@@ -23,6 +23,7 @@ MAP_IDS = [
     "slope",
     "relief",
     "race_track",
+    "robocon_dual_track",
 ]
 
 

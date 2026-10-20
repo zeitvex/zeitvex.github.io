@@ -1,7 +1,7 @@
 // UI 驱动：LainLab playground 外壳 + RC_WheelLeg 静态引擎（双端：桌面键鼠 / 手机摇杆）。
-import { WheelLegSim } from "./engine.js?v=3.2.4";
-import { SimRenderer } from "./render.js?v=3.2.4";
-import { POLICIES, TERRAINS, TERRAIN_GROUPS, JOINT_LABELS, POLICY_DT, CMD_LIMITS } from "./contract.js?v=3.2.4";
+import { WheelLegSim } from "./engine.js?v=3.2.6";
+import { SimRenderer } from "./render.js?v=3.2.6";
+import { POLICIES, TERRAINS, TERRAIN_GROUPS, JOINT_LABELS, POLICY_DT, CMD_LIMITS } from "./contract.js?v=3.2.6";
 
 const $ = (id) => document.getElementById(id);
 const MODELS_URL = new URL("../models/", import.meta.url).href;

@@ -70,6 +70,7 @@ export const TERRAIN_GROUPS = {
   slope: "坡面",
   rough: "粗糙地形",
   complex: "综合场景",
+  competition: "比赛地图",
 };
 
 export const TERRAINS = [
@@ -84,6 +85,7 @@ export const TERRAINS = [
   { id: "rough", label: "RC 粗糙网格", file: "scene_rough.xml", category: "rough", note: "RC 比赛随机网格。" },
   { id: "map_relief", label: "起伏围场", file: "map_relief.xml", category: "rough", note: "3×3 m 围场 + 三个圆柱凸台。" },
   { id: "map_race_track", label: "环形赛道", file: "map_race_track.xml", category: "complex", note: "环形赛道，适合持续速度跟踪。" },
+  { id: "map_robocon_dual_track", label: "RC2026 障碍赛", file: "map_robocon_dual_track.xml", category: "competition", note: "15×12 m 整场：起跑区、坑、砾石、木箱、双桥与标杆。" },
 ];
 
 export function makeConfig() {

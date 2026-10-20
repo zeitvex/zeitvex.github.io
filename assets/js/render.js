@@ -151,7 +151,7 @@ export class SimRenderer {
 
   build() {
     this.robotMat = this.robotMat || new THREE.MeshStandardMaterial({ color: 0xccd2da, metalness: 0.25, roughness: 0.5 });
-    this.terrainMat = this.terrainMat || new THREE.MeshStandardMaterial({ color: 0x707d8a, metalness: 0.1, roughness: 0.85 });
+    this.terrainMat = this.terrainMat || new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.1, roughness: 0.85 });
     this.colliderMat = this.colliderMat || new THREE.MeshStandardMaterial({ color: 0x2f6f4f, metalness: 0.1, roughness: 0.6, transparent: true, opacity: 0.55 });
 
     if (this.robotRoot) {
@@ -168,9 +168,10 @@ export class SimRenderer {
       this.grid.geometry.dispose();
       this.grid = null;
     }
-    for (const t of this.terrainBoxes || []) {
-      this.scene.remove(t.obj);
-      t.obj.geometry.dispose();
+    for (const obj of this.terrainBoxes || []) {
+      this.scene.remove(obj);
+      obj.geometry?.dispose();
+      obj.dispose?.();
     }
     this.terrainBoxes = [];
 
@@ -195,7 +196,7 @@ export class SimRenderer {
       }
     });
 
-    // 地形：渲染所有非机器人 body 的静态 geom（含公共地图库中的嵌套 body）
+    // 地形：渲染所有非机器人 body 的静态 geom；大量 box/cylinder 使用 InstancedMesh
     const { model, mujoco } = this.sim;
     const data = this.sim.data;
     const robotBodyIds = new Set();
@@ -204,23 +205,22 @@ export class SimRenderer {
       const id = mujoco.mj_name2id(model, 1, b.name);
       if (id > 0) robotBodyIds.add(id);
     }
+
     const geomMat = new THREE.Matrix4();
-    const applyPose = (obj, i) => {
-      obj.position.set(data.geom_xpos[i * 3], data.geom_xpos[i * 3 + 1], data.geom_xpos[i * 3 + 2]);
-      const m = data.geom_xmat;
-      geomMat.set(
-        m[i * 9], m[i * 9 + 1], m[i * 9 + 2], 0,
-        m[i * 9 + 3], m[i * 9 + 4], m[i * 9 + 5], 0,
-        m[i * 9 + 6], m[i * 9 + 7], m[i * 9 + 8], 0,
-        0, 0, 0, 1,
-      );
-      obj.quaternion.setFromRotationMatrix(geomMat);
-    };
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    const matrix = new THREE.Matrix4();
+    const color = new THREE.Color();
+    const groups = new Map([
+      [MJ_GEOM_BOX, []],
+      [MJ_GEOM_CYLINDER, []],
+      [MJ_GEOM_SPHERE, []],
+    ]);
 
     for (let i = 0; i < model.ngeom; i += 1) {
       if (robotBodyIds.has(model.geom_bodyid[i])) continue;
       const type = model.geom_type[i];
-      const size = [model.geom_size[i * 3], model.geom_size[i * 3 + 1], model.geom_size[i * 3 + 2]];
       if (type === MJ_GEOM_PLANE) {
         const floor = new THREE.Mesh(
           new THREE.PlaneGeometry(80, 80),
@@ -236,25 +236,52 @@ export class SimRenderer {
         grid.material.opacity = 0.5;
         this.scene.add(grid);
         this.grid = grid;
-      } else {
-        let geometry = null;
-        if (type === MJ_GEOM_BOX) {
-          geometry = new THREE.BoxGeometry(size[0] * 2, size[1] * 2, size[2] * 2);
-        } else if (type === MJ_GEOM_CYLINDER) {
-          geometry = new THREE.CylinderGeometry(size[0], size[0], size[1] * 2, 24);
-          geometry.rotateX(Math.PI / 2); // MuJoCo cylinder 沿局部 Z 轴
-        } else if (type === MJ_GEOM_SPHERE) {
-          geometry = new THREE.SphereGeometry(size[0], 24, 16);
-        }
-        if (!geometry) continue;
-        const obj = new THREE.Mesh(geometry, this.terrainMat);
-        const p = mujoco.mj_id2name(model, 4, i);
-        obj.name = p || `terrain${i}`;
-        applyPose(obj, i);
-        this.scene.add(obj);
-        this.terrainBoxes = this.terrainBoxes || [];
-        this.terrainBoxes.push({ obj, gid: i });
+      } else if (groups.has(type)) {
+        groups.get(type).push(i);
       }
+    }
+
+    const unitGeometry = (type) => {
+      if (type === MJ_GEOM_BOX) return new THREE.BoxGeometry(1, 1, 1);
+      if (type === MJ_GEOM_CYLINDER) {
+        const geo = new THREE.CylinderGeometry(1, 1, 2, 24);
+        geo.rotateX(Math.PI / 2); // MuJoCo cylinder 沿局部 Z 轴
+        return geo;
+      }
+      return new THREE.SphereGeometry(1, 24, 16);
+    };
+
+    for (const [type, ids] of groups) {
+      if (!ids.length) continue;
+      const mesh = new THREE.InstancedMesh(unitGeometry(type), this.terrainMat, ids.length);
+      mesh.frustumCulled = false;
+      ids.forEach((gid, j) => {
+        pos.set(data.geom_xpos[gid * 3], data.geom_xpos[gid * 3 + 1], data.geom_xpos[gid * 3 + 2]);
+        const m = data.geom_xmat;
+        geomMat.set(
+          m[gid * 9], m[gid * 9 + 1], m[gid * 9 + 2], 0,
+          m[gid * 9 + 3], m[gid * 9 + 4], m[gid * 9 + 5], 0,
+          m[gid * 9 + 6], m[gid * 9 + 7], m[gid * 9 + 8], 0,
+          0, 0, 0, 1,
+        );
+        quat.setFromRotationMatrix(geomMat);
+        const sx = model.geom_size[gid * 3];
+        const sy = model.geom_size[gid * 3 + 1];
+        const sz = model.geom_size[gid * 3 + 2];
+        if (type === MJ_GEOM_BOX) scale.set(sx * 2, sy * 2, sz * 2);
+        else if (type === MJ_GEOM_CYLINDER) scale.set(sx, sx, sy);
+        else scale.set(sx, sx, sx);
+        matrix.compose(pos, quat, scale);
+        mesh.setMatrixAt(j, matrix);
+        if (model.geom_rgba) {
+          color.setRGB(model.geom_rgba[gid * 4], model.geom_rgba[gid * 4 + 1], model.geom_rgba[gid * 4 + 2]);
+          mesh.setColorAt(j, color);
+        }
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      this.scene.add(mesh);
+      this.terrainBoxes.push(mesh);
     }
     this.clearTrail();
   }

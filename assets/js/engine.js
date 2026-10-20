@@ -9,7 +9,7 @@ import {
   JOINT_ORDER, ACTION_SCALE, DEFAULT_POSE, makeConfig,
   PHYSICS_DT, DECIMATION, POLICY_DT, INIT_HEIGHT, SETTLE_STEPS, BLEND_STEPS,
   CMD_LIMITS, POLICIES,
-} from "./contract.js?v=3.2.4";
+} from "./contract.js?v=3.2.6";
 
 const MJ_OBJ_JOINT = 3;      // 经验枚举值（本 wasm 构建实测）
 const MJ_OBJ_ACTUATOR = 19;
@@ -44,7 +44,7 @@ export class WheelLegSim {
       "scene_flat.xml", "scene_stairs.xml", "scene_rough.xml", "scene_wall.xml",
       "map_stairs.xml", "map_cross_stairs.xml", "map_high_platforms.xml",
       "map_cross_slope.xml", "map_slope.xml", "map_relief.xml",
-      "map_race_track.xml",
+      "map_race_track.xml", "map_robocon_dual_track.xml",
     ];
     const imgNames = ["label_1.png", "label_4.png", "label_7.png", "label_10.png"];
 
