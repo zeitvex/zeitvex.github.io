@@ -101,6 +101,20 @@ GitHub Pages：仓库 `Settings → Pages → Deploy from a branch`，选择 `ma
 
 推送后若浏览器仍显示旧首页，是旧版 Service Worker 的缓存：刷新一次让新 `sw.js` 接管，或在 DevTools → Application → Service Workers 中选择 *Update on reload* / *Unregister*。
 
+### 自动同步到 1Panel
+
+推送 `master` 后，`.github/workflows/deploy.yml` 会通过 rsync 将站点同步到 1Panel 静态网站目录。需要在仓库 `Settings → Secrets and variables → Actions` 配置：
+
+| Secret | 说明 |
+| --- | --- |
+| `SSH_HOST` | 服务器 IP 或域名 |
+| `SSH_USER` | 部署用户，例如 `deploy` |
+| `SSH_PORT` | SSH 端口 |
+| `SSH_PRIVATE_KEY` | 部署私钥全文 |
+| `SITE_ROOT` | 1Panel 网站目录，例如 `/opt/1panel/apps/openresty/openresty/www/sites/zeitvex.com/index` |
+
+工作流会排除 `.git/`、`.github/`、`tools/` 与 `.well-known/`；`--delete` 会清理服务器上仓库中不存在的站点文件，请确保 `SITE_ROOT` 是专用目录。
+
 ## 许可
 
 站点代码 MIT。主页模板结构参考 [Lain-Ego0/Lain-Ego0.github.io](https://github.com/Lain-Ego0/Lain-Ego0.github.io)。MuJoCo（Apache-2.0）、onnxruntime-web（MIT）、three.js（MIT）保留上游许可。机器人模型、策略权重、照片与视频版权归 zeitvex 所有。
