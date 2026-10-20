@@ -124,9 +124,9 @@
   const TIMELINE_EVENTS = [
     'timeline.event0',
     'timeline.event1',
+    'timeline.event4',
     'timeline.event2',
     'timeline.event3',
-    'timeline.event4',
     'timeline.event5',
     'timeline.event6',
   ];
