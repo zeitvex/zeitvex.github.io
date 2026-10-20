@@ -1,30 +1,30 @@
 {
-  "name": "RC_WheelLeg 在线仿真 · zeitvex",
-  "short_name": "WheelLeg Sim",
-  "description": "16DOF 轮足机器人比赛策略（model_6800 Rough / model_84 高墙）的浏览器实时仿真：MuJoCo WASM 物理 + 纯 JS 策略推理，桌面与手机双端可用。",
-  "start_url": "./playground.html",
+  "name": "时维 · zeitvex | Robotics & Embedded",
+  "short_name": "zeitvex",
+  "description": "时维的个人主页：机器人 / 嵌入式 / 强化学习工程师。RC_WheelLeg 16DOF 轮足机器人、双臂人形平台、视觉云台与 ROS 2 Sim2Real 项目。",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0a0d13",
-  "theme_color": "#0a0d13",
+  "background_color": "#f3f3f3",
+  "theme_color": "#0078d4",
   "lang": "zh-CN",
-  "categories": ["education", "entertainment", "utilities"],
+  "categories": ["portfolio", "education", "utilities"],
   "icons": [
     {
-      "src": "./assets/icons/icon-192.png",
+      "src": "./assets/icons/icon-192.png?v=20261021",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/icons/icon-512.png",
+      "src": "./assets/icons/icon-512.png?v=20261021",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/icons/icon-maskable-512.png",
+      "src": "./assets/icons/icon-maskable-512.png?v=20261021",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

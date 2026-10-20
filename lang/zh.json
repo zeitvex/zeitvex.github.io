@@ -1,0 +1,219 @@
+{
+  "meta": {
+    "title": "时维 · 机器人 / 嵌入式 / 强化学习工程师",
+    "description": "时维（zeitvex）的个人主页：机器人 / 嵌入式 / 强化学习工程师。RC_WheelLeg 16DOF 轮足机器人、双臂人形平台、视觉云台与 ROS 2 Sim2Real 项目。ROBOCON、电赛国家级一等奖。"
+  },
+  "nav": {
+    "projects": "项目",
+    "documents": "开源文档",
+    "awards": "奖项",
+    "timeline": "时间轴",
+    "skills": "技术栈",
+    "gallery": "作品集",
+    "playground": "在线仿真",
+    "resume": "简历"
+  },
+  "intro": {
+    "avatarAlt": "zeitvex 头像",
+    "title": "你好，我是时维",
+    "desc": "机器人 / 嵌入式 / 强化学习工程师 · 2027&nbsp;届<br>从 MCU 到 RL，从仿真到真机。"
+  },
+  "stats": {
+    "item0": "国家级一等奖",
+    "item1": "国家级 / 省级奖项",
+    "item2": "GitHub Stars",
+    "item3": "EI 论文（学生一作）"
+  },
+  "projects": {
+    "title": "项目",
+    "imgAlt": "项目图片",
+    "featured": "FEATURED",
+    "links": {
+      "detail": "项目详情",
+      "playground": "在线仿真",
+      "code": "代码仓库"
+    },
+    "item0": {
+      "title": "全自动强化学习四轮足机器人 RC_WheelLeg",
+      "desc": "16 自由度串联轮足机器人。主导机械 / 硬件选型与 RL 训练方案，基于 mjlab 配置 53 维观测 / 16 维动作；优化奖励、课程与域随机化，在约 20 kg 总重、17 N·m 峰值扭矩约束下通过碎石、0.20 m 台阶与 0.35 m 高墙；完成 MuJoCo Sim2Sim 与 ROS 2 / C++ 真机部署，TensorRT 推理低于 1 ms。获 ROBOCON 国一（前 5%），GitHub 153 stars。",
+      "tags": ["Reinforcement Learning", "MuJoCo / mjlab", "Sim2Real", "ROS 2", "TensorRT", "C++"]
+    },
+    "item1": {
+      "title": "移动双臂类人具身平台",
+      "desc": "独立完成移动双臂平台全栈：LeRobot SAM 机械臂 + RDK X5，SolidWorks 建模与 URDF 导出；基于 Pico4U 与 WebSocket 的 VR 手柄遥操作，通过 IK 解算 7 DOF 机械臂；搭建 Node.js 调试平台并接入 ASR/TTS、多路环境传感器与毫米波雷达。",
+      "tags": ["RDK X5", "SolidWorks", "URDF", "VR Teleoperation", "IK", "Node.js"]
+    },
+    "item2": {
+      "title": "移动视觉追踪与云台稳定平台",
+      "desc": "YOLOv5 + MaixCAM 边缘部署，构建“隔帧检测 → 二值化 → 轮廓 / 四边形拟合 → 透视变换”视觉链；双轴云台扫描、目标确认、PD 跟踪与丢失回扫；自定义 9 字节 UART 协议，载具引入 IMU / 编码器与 Yaw 前馈补偿。获电赛国一（前 2%）。",
+      "tags": ["YOLOv5", "MaixCAM", "MSPM0G3507", "UART", "PD Control", "Embedded C"]
+    },
+    "item3": {
+      "title": "宇树 GO2 × Isaac Sim 具身任务",
+      "desc": "基于 Isaac Sim 4.2 + ROS 2 的 GO2 仿真与实机任务：订阅仿真 IMU 完成循迹，PPO 调参训练爬楼梯策略；集成 PaddleOCR、LLM 与视觉模型完成文字提取、路径规划与目标识别；最终在 GO2 EDU / Orin NX 实机部署。获中国软件杯国三。",
+      "tags": ["Isaac Sim", "ROS 2", "PPO", "Unitree GO2", "PaddleOCR", "Orin NX"]
+    },
+    "item4": {
+      "title": "12DOF 舵机四足机器人",
+      "desc": "华为 ICT 大赛作品：基于昇腾 CANN / ModelArts 的目标检测训练与部署，搭建 12 自由度总线舵机四足并实现位控步态；使用华为云 OBS + 1Panel 部署巡检平台。获华为 ICT 省一。",
+      "tags": ["Ascend CANN", "ModelArts", "Serial Bus Servo", "Gait Control", "Huawei Cloud"]
+    },
+    "item5": {
+      "title": "LeRobot SO-ARM100 机械臂复刻",
+      "desc": "复刻 LeRobot SO-ARM100 机械臂，完成装配、标定与调试；配合 RDK X5 与 Docker 图形化工具链完成 YOLO 量化部署，用于物流分拣任务中的目标识别与抓取。",
+      "tags": ["LeRobot", "SO-ARM100", "RDK X5", "Docker", "YOLO Quantization"]
+    },
+    "item6": {
+      "title": "智能物流小车",
+      "desc": "工创赛智能物流小车：SO-ARM100 + RDK X5 上位机、ESP32-S3 + PlatformIO 下位机，驱动 42 闭环步进电机并完成麦轮运动学解算，通过串口通信完成目标抓取与搬运。获工创赛省二。",
+      "tags": ["ESP32-S3", "PlatformIO", "Closed-loop Stepper", "Mecanum", "ROS"]
+    },
+    "item7": {
+      "title": "睿抗智慧果园机器人",
+      "desc": "面向果园场景的目标检测与采摘装置：YOLOv5 果实检测、STM32 灰度循迹，3D 打印 + 舵机 + ESP32 果实收集机构。获睿抗国二。",
+      "tags": ["YOLOv5", "STM32", "3D Printing", "ESP32", "Line Tracking"]
+    },
+    "item8": {
+      "title": "算法精英赛穿越火线",
+      "desc": "基于 ROS 与思岚 A1 雷达的自动导航与任务执行：SLAM 建图、代价地图膨胀半径调参、二维云台协同完成比赛任务。获全球校园 AI 算法精英大赛国二。",
+      "tags": ["ROS", "SLAM", "RPLIDAR A1", "Costmap", "Pan-Tilt Control"]
+    },
+    "item9": {
+      "title": "电赛自动行驶小车",
+      "desc": "MSPM0G3507 主控的自动行驶小车：编码器电机闭环、IMU 姿态融合与灰度循迹，完成指定路径行驶与目标识别。获电赛省一。",
+      "tags": ["MSPM0G3507", "IMU", "Encoder", "PID", "Line Tracking"]
+    }
+  },
+  "documents": {
+    "title": "开源与文档",
+    "links": {
+      "resume": "邮件索取",
+      "profile": "打开 GitHub"
+    },
+    "item0": {
+      "title": "RC_WheelLeg 开源仓库",
+      "desc": "机械、硬件、固件、软件、BOM、装配资料、训练与比赛版本代码及部署文档全量开源；GitHub 153 stars。"
+    },
+    "item1": {
+      "title": "NUEDC-Car-Vision 视觉追踪",
+      "desc": "YOLOv5 + MaixCAM + MSPM0G3507 的视觉追踪、云台控制与串口通信代码。"
+    },
+    "item2": {
+      "title": "简历（邮件索取）",
+      "desc": "出于隐私考虑，站点不公开含真实姓名与联系方式的简历文件；可通过邮箱索取最新版本。"
+    },
+    "item3": {
+      "title": "GitHub 主页",
+      "desc": "其他项目、代码与持续更新。"
+    }
+  },
+  "awards": {
+    "title": "奖项",
+    "level": {
+      "first": "国家级一等奖",
+      "second": "国家级二等奖",
+      "third": "国家级三等奖"
+    },
+    "more": "另有：华为 ICT 省一、工创赛省二、电工杯数模国二、高教杯省二、物联网设计省二、蓝桥杯省二、大唐杯省三、先进成图省二、电赛省一；2 篇 EI 会议论文（学生一作）、1 项软件著作权、省级大创负责人。",
+    "item0": {
+      "title": "全国大学生机器人大赛 ROBOCON",
+      "desc": "国家级一等奖（前 5%）· 仿生足式障碍赛 · 创始副队长 / 项管 / 技术负责人 · 校史首次"
+    },
+    "item1": {
+      "title": "全国大学生电子设计竞赛",
+      "desc": "国家级一等奖（前 2%）· 控制题 · 队长 · 校史首次"
+    },
+    "item2": {
+      "title": "中国机器人及人工智能大赛",
+      "desc": "国家级二等奖"
+    },
+    "item3": {
+      "title": "中国软件杯大学生软件设计大赛",
+      "desc": "国家级三等奖 · 宇树 GO2 赛道"
+    },
+    "item4": {
+      "title": "全球校园人工智能算法精英大赛",
+      "desc": "国家级二等奖 · 穿越火线赛道"
+    },
+    "item5": {
+      "title": "睿抗机器人开发者大赛",
+      "desc": "国家级二等奖 · 智慧果园赛道"
+    }
+  },
+  "timeline": {
+    "title": "经历时间轴",
+    "event0": {
+      "date": "2027.06",
+      "title": "本科毕业 · 求职",
+      "desc": "山东华宇工学院物联网工程本科毕业。方向：机器人强化学习 / 嵌入式 / 运动控制，意向深圳。"
+    },
+    "event1": {
+      "date": "2025.12 – 2026.07",
+      "title": "RC_WheelLeg · ROBOCON",
+      "desc": "创立 RC 战队，任创始副队长 / 项管 / 技术负责人；主导 16DOF 轮足全栈，获 ROBOCON 国一（前 5%），开源项目 153 stars。"
+    },
+    "event2": {
+      "date": "2025.03 – 2025.08",
+      "title": "双臂人形平台与视觉云台",
+      "desc": "完成移动双臂具身平台全栈；视觉追踪与云台平台获电赛国一（前 2%）。"
+    },
+    "event3": {
+      "date": "2025",
+      "title": "竞赛与学术成果",
+      "desc": "中国软件杯国三、算法精英国二、华为 ICT 省一、工创赛省二；2 篇 EI 会议论文（学生一作）、1 项软著、省级大创负责人。"
+    },
+    "event4": {
+      "date": "2025",
+      "title": "深圳科创学院极客营",
+      "desc": "通过两轮面试入选深圳科创学院极客营（Re:X），完成阶段性项目与方向探索。"
+    },
+    "event5": {
+      "date": "2024",
+      "title": "竞赛起步与社团负责人",
+      "desc": "睿抗国二、蓝桥杯省二、大唐杯省三、先进成图省二、电赛省一；担任社团社长，获优秀社团干部。"
+    },
+    "event6": {
+      "date": "2023.09",
+      "title": "入学山东华宇工学院",
+      "desc": "物联网工程本科；加入电子社团，从 51、STM32 与 C 语言起步，建立嵌入式与机器人基础。"
+    }
+  },
+  "skills": {
+    "title": "技术栈",
+    "robotics": "机器人与强化学习",
+    "embedded": "嵌入式开发",
+    "software": "机器人软件",
+    "hardware": "结构与硬件",
+    "web": "Web 与工具"
+  },
+  "gallery": {
+    "title": "作品集",
+    "note": "实机、模型与调试现场。点击图片查看大图。",
+    "item0": "RC_WheelLeg 实机行走",
+    "item1": "RC_WheelLeg 结构侧视",
+    "item2": "RC_WheelLeg SolidWorks 模型",
+    "item3": "宇树 GO2 × Isaac Sim 仿真",
+    "item4": "12DOF 舵机四足",
+    "item5": "前期双臂人形平台",
+    "item6": "后期双臂人形平台",
+    "item7": "机器人调试平台 Web UI",
+    "item8": "电赛自动行驶小车",
+    "item9": "电赛自动瞄准小车",
+    "item10": "LeRobot SO-ARM100 机械臂",
+    "item11": "工创赛智能物流车",
+    "item12": "算法精英赛穿越火线",
+    "item13": "睿抗智慧果园",
+    "item14": "机械臂 CAD 与装配",
+    "item15": "机械臂装配细节"
+  },
+  "contact": {
+    "email": "邮箱",
+    "github": "GitHub",
+    "resume": "索取简历",
+    "playground": "在线仿真"
+  },
+  "footer": {
+    "copyright": "© 2023–2027 时维 · zeitvex · 个人主页",
+    "note": "站点代码 MIT · 机器人与媒体素材保留所有权利"
+  }
+}

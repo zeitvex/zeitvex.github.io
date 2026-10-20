@@ -1,0 +1,219 @@
+{
+  "meta": {
+    "title": "zeitvex · Robotics / Embedded / RL Engineer",
+    "description": "Personal homepage of zeitvex: robotics, embedded systems and reinforcement learning. RC_WheelLeg 16-DOF wheel-leg robot, dual-arm humanoid platform, vision gimbal and ROS 2 Sim2Real projects."
+  },
+  "nav": {
+    "projects": "Projects",
+    "documents": "Open Source",
+    "awards": "Awards",
+    "timeline": "Timeline",
+    "skills": "Stack",
+    "gallery": "Gallery",
+    "playground": "Simulator",
+    "resume": "Resume"
+  },
+  "intro": {
+    "avatarAlt": "zeitvex avatar",
+    "title": "Hi, I'm zeitvex",
+    "desc": "Robotics / Embedded / RL Engineer · Class of 2027<br>From MCU to RL, from simulation to the real robot."
+  },
+  "stats": {
+    "item0": "National First Prizes",
+    "item1": "National & Provincial Awards",
+    "item2": "GitHub Stars",
+    "item3": "EI Papers (First Author)"
+  },
+  "projects": {
+    "title": "Projects",
+    "imgAlt": "Project image",
+    "featured": "FEATURED",
+    "links": {
+      "detail": "Project Detail",
+      "playground": "Live Simulator",
+      "code": "Code"
+    },
+    "item0": {
+      "title": "RC_WheelLeg — Autonomous RL Wheel-Leg Robot",
+      "desc": "A 16-DOF serial wheel-leg robot. Led mechanical/hardware selection and the RL pipeline: 53-D observation / 16-D action with mjlab, reward and curriculum tuning, domain randomization, and PPO training under a 20 kg / 17 N·m envelope; traverses gravel, 0.20 m steps and 0.35 m walls. Completed MuJoCo Sim2Sim and ROS 2 / C++ deployment with TensorRT inference below 1 ms. ROBOCON National First Prize (top 5%), 153 GitHub stars.",
+      "tags": ["Reinforcement Learning", "MuJoCo / mjlab", "Sim2Real", "ROS 2", "TensorRT", "C++"]
+    },
+    "item1": {
+      "title": "Mobile Dual-Arm Humanoid Platform",
+      "desc": "Built the full stack of a mobile dual-arm platform: LeRobot SAM arms + RDK X5, SolidWorks modeling and URDF export, Pico4U VR hand-controller teleoperation with IK for a 7-DOF arm, a Node.js debugging platform, ASR/TTS, environmental sensors and a millimeter-wave radar.",
+      "tags": ["RDK X5", "SolidWorks", "URDF", "VR Teleoperation", "IK", "Node.js"]
+    },
+    "item2": {
+      "title": "Mobile Vision Tracking & Gimbal Stabilization",
+      "desc": "YOLOv5 + MaixCAM edge deployment with a frame-skipping detection, binarization, contour/quadrilateral fitting and perspective-transform pipeline; dual-axis gimbal scan, target confirmation, PD tracking and re-acquisition; custom 9-byte UART protocol; IMU/encoder and yaw feed-forward compensation. NUEDC National First Prize (top 2%).",
+      "tags": ["YOLOv5", "MaixCAM", "MSPM0G3507", "UART", "PD Control", "Embedded C"]
+    },
+    "item3": {
+      "title": "Unitree GO2 × Isaac Sim Embodied Tasks",
+      "desc": "Unitree GO2 tasks in Isaac Sim 4.2 + ROS 2: IMU-based line following, PPO stair-climbing policy tuning, and integration of PaddleOCR, LLM and vision models for text extraction, route planning and object recognition; deployed on GO2 EDU / Orin NX. China Software Cup National Third Prize.",
+      "tags": ["Isaac Sim", "ROS 2", "PPO", "Unitree GO2", "PaddleOCR", "Orin NX"]
+    },
+    "item4": {
+      "title": "12-DOF Serial-Bus-Servo Quadruped",
+      "desc": "Huawei ICT competition project: object detection trained and deployed with Ascend CANN / ModelArts, a 12-DOF serial-bus-servo quadruped with position-controlled gaits, and an inspection platform on Huawei Cloud OBS + 1Panel. Huawei ICT Provincial First Prize.",
+      "tags": ["Ascend CANN", "ModelArts", "Serial Bus Servo", "Gait Control", "Huawei Cloud"]
+    },
+    "item5": {
+      "title": "LeRobot SO-ARM100 Replica",
+      "desc": "Replicated the LeRobot SO-ARM100 arm, including assembly, calibration and debugging; deployed quantized YOLO models on RDK X5 with a Docker-based graphical toolchain for pick-and-place tasks.",
+      "tags": ["LeRobot", "SO-ARM100", "RDK X5", "Docker", "YOLO Quantization"]
+    },
+    "item6": {
+      "title": "Smart Logistics Vehicle",
+      "desc": "Engineering training competition vehicle: SO-ARM100 + RDK X5 host, ESP32-S3 + PlatformIO controller, 42 closed-loop steppers and mecanum kinematics, with serial communication for grasping and transport. Provincial Second Prize.",
+      "tags": ["ESP32-S3", "PlatformIO", "Closed-loop Stepper", "Mecanum", "ROS"]
+    },
+    "item7": {
+      "title": "RAICOM Smart Orchard Robot",
+      "desc": "Orchard robot with YOLOv5 fruit detection, STM32 line tracking, and a 3D-printed servo/ESP32 fruit-collection mechanism. RAICOM National Second Prize.",
+      "tags": ["YOLOv5", "STM32", "3D Printing", "ESP32", "Line Tracking"]
+    },
+    "item8": {
+      "title": "Algorithm Elite Crossfire Robot",
+      "desc": "ROS + RPLIDAR A1 navigation for the Algorithm Elite competition: SLAM mapping, costmap inflation tuning and pan-tilt coordination. Global Campus AI Algorithm Elite Competition National Second Prize.",
+      "tags": ["ROS", "SLAM", "RPLIDAR A1", "Costmap", "Pan-Tilt Control"]
+    },
+    "item9": {
+      "title": "NUEDC Autonomous Car",
+      "desc": "MSPM0G3507 autonomous car with encoder closed-loop motor control, IMU fusion and line tracking for path following and target recognition. NUEDC Provincial First Prize.",
+      "tags": ["MSPM0G3507", "IMU", "Encoder", "PID", "Line Tracking"]
+    }
+  },
+  "documents": {
+    "title": "Open Source & Docs",
+    "links": {
+      "resume": "Request by Email",
+      "profile": "Open GitHub"
+    },
+    "item0": {
+      "title": "RC_WheelLeg Repository",
+      "desc": "Mechanical, hardware, firmware, software, BOM, assembly, training and competition code, and deployment docs — 153 GitHub stars."
+    },
+    "item1": {
+      "title": "NUEDC-Car-Vision",
+      "desc": "Vision tracking, gimbal control and UART code for YOLOv5 + MaixCAM + MSPM0G3507."
+    },
+    "item2": {
+      "title": "Resume (on Request)",
+      "desc": "For privacy, the site does not publish a resume with a real name or phone number. Request the latest version by email."
+    },
+    "item3": {
+      "title": "GitHub Profile",
+      "desc": "More projects and ongoing work."
+    }
+  },
+  "awards": {
+    "title": "Awards",
+    "level": {
+      "first": "National First Prize",
+      "second": "National Second Prize",
+      "third": "National Third Prize"
+    },
+    "more": "Also: Huawei ICT Provincial First Prize, Engineering Training Provincial Second Prize, Electrical Engineering Cup National Second Prize in mathematical modeling, Higher Education Cup Provincial Second Prize, IoT Design Provincial Second Prize, Lanqiao Cup Provincial Second Prize, Datang Cup Provincial Third Prize, Advanced Mapping Provincial Second Prize, NUEDC Provincial First Prize; 2 EI conference papers (first student author), 1 software copyright, and a provincial innovation project lead.",
+    "item0": {
+      "title": "ROBOCON National University Robot Competition",
+      "desc": "National First Prize (top 5%) · Bionic legged obstacle race · Founding vice-captain / project manager / technical lead · First in school history"
+    },
+    "item1": {
+      "title": "National Undergraduate Electronic Design Contest",
+      "desc": "National First Prize (top 2%) · Control problem · Team captain · First in school history"
+    },
+    "item2": {
+      "title": "China Robot and AI Competition",
+      "desc": "National Second Prize"
+    },
+    "item3": {
+      "title": "China Software Cup",
+      "desc": "National Third Prize · Unitree GO2 track"
+    },
+    "item4": {
+      "title": "Global Campus AI Algorithm Elite Competition",
+      "desc": "National Second Prize · Crossfire track"
+    },
+    "item5": {
+      "title": "RAICOM Robot Developer Competition",
+      "desc": "National Second Prize · Smart orchard track"
+    }
+  },
+  "timeline": {
+    "title": "Timeline",
+    "event0": {
+      "date": "2027.06",
+      "title": "Graduation & Job Search",
+      "desc": "B.Eng. in IoT Engineering, Shandong Huayu University of Technology. Focus: robot RL / embedded / motion control; target city: Shenzhen."
+    },
+    "event1": {
+      "date": "2025.12 – 2026.07",
+      "title": "RC_WheelLeg · ROBOCON",
+      "desc": "Founded the RC team as vice-captain / project manager / technical lead; led the 16-DOF wheel-leg stack, won the ROBOCON National First Prize (top 5%), and open-sourced the project (153 stars)."
+    },
+    "event2": {
+      "date": "2025.03 – 2025.08",
+      "title": "Dual-Arm Humanoid & Vision Gimbal",
+      "desc": "Completed the full dual-arm mobile platform; the vision tracking and gimbal platform won the NUEDC National First Prize (top 2%)."
+    },
+    "event3": {
+      "date": "2025",
+      "title": "Competitions & Research",
+      "desc": "China Software Cup National Third Prize, Algorithm Elite National Second Prize, Huawei ICT Provincial First Prize, Engineering Training Provincial Second Prize; 2 EI papers (first student author), 1 software copyright, provincial innovation project lead."
+    },
+    "event4": {
+      "date": "2025",
+      "title": "Shenzhen InnoX Academy",
+      "desc": "Selected for the Shenzhen InnoX Academy (Re:X) program after two interview rounds; completed a stage project and explored research directions."
+    },
+    "event5": {
+      "date": "2024",
+      "title": "First Competitions & Club Lead",
+      "desc": "RAICOM National Second Prize, Lanqiao Cup Provincial Second Prize, Datang Cup Provincial Third Prize, Advanced Mapping Provincial Second Prize, NUEDC Provincial First Prize; served as club president and received the Outstanding Club Member award."
+    },
+    "event6": {
+      "date": "2023.09",
+      "title": "Started at Shandong Huayu University of Technology",
+      "desc": "B.Eng. in IoT Engineering; joined the electronics club and started with 8051, STM32 and C."
+    }
+  },
+  "skills": {
+    "title": "Tech Stack",
+    "robotics": "Robotics & RL",
+    "embedded": "Embedded",
+    "software": "Robot Software",
+    "hardware": "Mechanical & Hardware",
+    "web": "Web & Tools"
+  },
+  "gallery": {
+    "title": "Gallery",
+    "note": "Real robots, CAD and debugging scenes. Click an image to enlarge.",
+    "item0": "RC_WheelLeg in motion",
+    "item1": "RC_WheelLeg side view",
+    "item2": "RC_WheelLeg SolidWorks model",
+    "item3": "Unitree GO2 × Isaac Sim",
+    "item4": "12-DOF servo quadruped",
+    "item5": "Early dual-arm humanoid platform",
+    "item6": "Later dual-arm humanoid platform",
+    "item7": "Robot debugging web UI",
+    "item8": "NUEDC autonomous car",
+    "item9": "NUEDC auto-aiming car",
+    "item10": "LeRobot SO-ARM100 arm",
+    "item11": "Engineering training logistics vehicle",
+    "item12": "Algorithm Elite Crossfire robot",
+    "item13": "RAICOM smart orchard robot",
+    "item14": "Robotic arm CAD and assembly",
+    "item15": "Robotic arm assembly detail"
+  },
+  "contact": {
+    "email": "Email",
+    "github": "GitHub",
+    "resume": "Request CV",
+    "playground": "Live Simulator"
+  },
+  "footer": {
+    "copyright": "© 2023–2027 zeitvex · Personal Homepage",
+    "note": "Site code MIT · Robot and media assets all rights reserved"
+  }
+}

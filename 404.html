@@ -1,27 +1,46 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0d13" />
-    <title>404 · 页面走丢了</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
-    <link rel="stylesheet" href="./assets/css/site.css" />
-  </head>
-  <body>
-    <nav class="nav">
-      <a class="nav-brand" href="./index.html">zeitvex<span>.dev</span></a>
-    </nav>
-    <header class="hero">
-      <div class="hero-inner">
-        <p class="kicker">404 · NOT FOUND</p>
-        <h1>这个页面<span>被机器人踢走了</span></h1>
-        <p class="lede">你要找的页面不存在。试试回到首页，或者直接进入在线仿真试玩区。</p>
-        <div class="cta-row">
-          <a class="btn primary" href="./index.html">返回首页</a>
-          <a class="btn" href="./playground.html">进入在线仿真</a>
-        </div>
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#ffffff">
+  <title>404 · 页面不存在 | zeitvex</title>
+  <link rel="icon" href="favicon.png?v=20261021" type="image/png">
+  <script>
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+  </script>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261020">
+  <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <nav>
+    <div class="container nav-container">
+      <a href="./" class="logo" aria-label="返回首页">
+        <span class="logo-terminal" aria-hidden="true"><span class="terminal-user">zeitvex@robotics</span><span class="terminal-path">:~</span><span class="terminal-symbol">$</span><span class="terminal-cursor"></span></span>
+      </a>
+      <div class="nav-controls">
+        <a class="control-btn nav-playground" href="playground.html">在线仿真</a>
+        <a class="control-btn" href="./">返回首页</a>
       </div>
-    </header>
-  </body>
+    </div>
+  </nav>
+
+  <section class="intro">
+    <div class="container flex-center column">
+      <p class="logo-terminal" style="height:30px;font-size:.9rem;margin-bottom:18px">404 · NOT FOUND</p>
+      <h1 class="gradient-text">这个页面被机器人踢走了</h1>
+      <p class="subtitle">The page you are looking for does not exist.<br>回到首页看项目，或者直接进入 RC_WheelLeg 在线仿真。</p>
+      <div class="intro-contact-links">
+        <a class="intro-contact-link" href="./"><span>返回首页</span><i class="fas fa-house"></i></a>
+        <a class="intro-contact-link" href="playground.html"><span>在线仿真</span><i class="fas fa-robot"></i></a>
+        <a class="intro-contact-link" href="rc-wheelleg.html"><span>RC_WheelLeg</span><i class="fas fa-book-open"></i></a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2023–2027 时维 · zeitvex · 个人主页</p>
+  </footer>
+</body>
 </html>
