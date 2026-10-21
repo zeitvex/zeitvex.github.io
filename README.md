@@ -1,9 +1,31 @@
 # zeitvex.github.io
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-5ec1ff.svg)](LICENSE)
-[![Pages](https://img.shields.io/badge/GitHub%20Pages-live-4ec98a.svg)](https://zeitvex.github.io)
-[![MuJoCo WASM](https://img.shields.io/badge/physics-MuJoCo%20WASM-1769a9.svg)](./playground.html)
-[![PWA](https://img.shields.io/badge/PWA-installable-e0b159.svg)](./manifest.json)
+<p align="center">
+  <a href="https://github.com/zeitvex?tab=repositories">
+    <img alt="GitHub User's stars" src="https://img.shields.io/github/stars/zeitvex?style=social&logo=github">
+  </a>
+  <a href="https://github.com/zeitvex">
+    <img alt="GitHub followers" src="https://img.shields.io/github/followers/zeitvex?style=social&logo=github">
+  </a>
+  <a href="LICENSE">
+    <img alt="License" src="https://img.shields.io/badge/License-MIT-yellow.svg">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://zeitvex.github.io">
+    <img alt="GitHub Pages" src="https://img.shields.io/badge/GitHub%20Pages-live-4ec98a.svg">
+  </a>
+  <a href="./playground.html">
+    <img alt="MuJoCo WASM" src="https://img.shields.io/badge/physics-MuJoCo%20WASM-1769a9.svg">
+  </a>
+  <a href="./manifest.json">
+    <img alt="PWA" src="https://img.shields.io/badge/PWA-installable-e0b159.svg">
+  </a>
+  <a href="https://github.com/zeitvex/RC_WheelLeg">
+    <img alt="RC_WheelLeg stars" src="https://img.shields.io/github/stars/zeitvex/RC_WheelLeg?style=social&logo=github">
+  </a>
+</p>
 
 时维（zeitvex）的个人主页：机器人 / 嵌入式 / 强化学习工程师。站点同时包含 **RC_WheelLeg 16DOF 轮足机器人**深度技术页与浏览器在线仿真。纯静态、零后端，GitHub Pages 托管。
 
